@@ -16,6 +16,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const particlesRef = useRef<Particle[][]>([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const frameRef = useRef(0);
+  const timeRef = useRef(0);
   const isDraggingRef = useRef(false);
 
   useEffect(() => {
@@ -36,21 +37,28 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         x: clientX - rect.left,
         y: clientY - rect.top,
       };
+      // Reset time to create new wave
+      timeRef.current = 0;
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault();
-      updateMousePosition(e.clientX, e.clientY);
+      if (isDraggingRef.current) {
+        updateMousePosition(e.clientX, e.clientY);
+      }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      const touch = e.touches[0];
-      updateMousePosition(touch.clientX, touch.clientY);
+      if (isDraggingRef.current) {
+        const touch = e.touches[0];
+        updateMousePosition(touch.clientX, touch.clientY);
+      }
     };
 
-    const handleStart = () => {
+    const handleStart = (clientX: number, clientY: number) => {
       isDraggingRef.current = true;
+      updateMousePosition(clientX, clientY);
     };
 
     const handleEnd = () => {
@@ -59,19 +67,21 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     };
 
     // Add touch and mouse event listeners
+    canvas.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
     canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mousedown", handleStart);
     canvas.addEventListener("mouseup", handleEnd);
     canvas.addEventListener("mouseleave", handleEnd);
 
-    canvas.addEventListener("touchstart", handleStart);
+    canvas.addEventListener("touchstart", (e) => {
+      const touch = e.touches[0];
+      handleStart(touch.clientX, touch.clientY);
+    });
     canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvas.addEventListener("touchend", handleEnd);
 
     return () => {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mousedown", handleStart);
       canvas.removeEventListener("mouseup", handleEnd);
       canvas.removeEventListener("mouseleave", handleEnd);
 
@@ -116,34 +126,50 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Update and draw particles
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-      ctx.lineWidth = 1;
+      timeRef.current += 1;
 
+      // Update and draw particles
       particlesRef.current.forEach(thread => {
         // Update particles
         thread.forEach(particle => {
           particle.update(
             mouseRef.current.x,
             mouseRef.current.y,
-            isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce
+            isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
+            timeRef.current,
+            canvas.width,
+            canvas.height
           );
         });
 
-        // Draw thread lines
-        ctx.beginPath();
-        thread.forEach((particle, i) => {
-          if (i === 0) {
-            ctx.moveTo(particle.x, particle.y);
-          } else {
-            ctx.lineTo(particle.x, particle.y);
-          }
-        });
-        ctx.stroke();
+        // Draw thread lines with gradient based on particle colors
+        if (thread.length >= 2) {
+          const gradient = ctx.createLinearGradient(
+            thread[0].x,
+            thread[0].y,
+            thread[thread.length - 1].x,
+            thread[thread.length - 1].y
+          );
 
-        // Draw particles with glow effect
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          thread.forEach((particle, i) => {
+            gradient.addColorStop(i / (thread.length - 1), particle.color);
+          });
+
+          ctx.strokeStyle = gradient;
+          ctx.beginPath();
+          thread.forEach((particle, i) => {
+            if (i === 0) {
+              ctx.moveTo(particle.x, particle.y);
+            } else {
+              ctx.lineTo(particle.x, particle.y);
+            }
+          });
+          ctx.stroke();
+        }
+
+        // Draw particles with their individual colors
         thread.forEach(particle => {
+          ctx.fillStyle = particle.color;
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
           ctx.fill();

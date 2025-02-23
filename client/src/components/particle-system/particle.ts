@@ -29,10 +29,10 @@ export class Particle {
     canvasHeight: number,
     neighbors: Particle[] = []
   ) {
-    // Calculate distance to wave source
+    // Calculate distance to wave source with safety check
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001; // Prevent division by zero
 
     // Wave parameters
     const waveSpeed = 3;
@@ -45,11 +45,15 @@ export class Particle {
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
       const timeDecay = Math.exp(-time * 0.02);
       const distanceDecay = Math.exp(-distance * 0.001);
-      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02;
+      const waveForce = Math.min(10, waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02);
 
       const angle = Math.atan2(dy, dx);
-      this.vx += Math.cos(angle) * waveForce / this.mass;
-      this.vy += Math.sin(angle) * waveForce / this.mass;
+      const forceX = Math.cos(angle) * waveForce / this.mass;
+      const forceY = Math.sin(angle) * waveForce / this.mass;
+
+      // Add clamped forces
+      this.vx += Math.min(Math.max(forceX, -10), 10);
+      this.vy += Math.min(Math.max(forceY, -10), 10);
     }
 
     // Calculate pressure and density from neighbors
@@ -62,26 +66,28 @@ export class Particle {
 
       const dx = neighbor.x - this.x;
       const dy = neighbor.y - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
       if (dist < smoothingRadius) {
-        // Calculate density
-        const influence = 1 - dist / smoothingRadius;
+        // Calculate density with safety bounds
+        const influence = Math.max(0, Math.min(1 - dist / smoothingRadius, 1));
         this.density += neighbor.mass * influence;
 
-        // Add pressure-based forces
+        // Add pressure-based forces with safety checks
         if (this.density > 1) {
-          const pressureForce = (this.density - 1) * 0.1;
-          this.vx -= (dx / dist) * pressureForce;
-          this.vy -= (dy / dist) * pressureForce;
+          const pressureForce = Math.min((this.density - 1) * 0.1, 5);
+          const normalizedDx = dx / dist;
+          const normalizedDy = dy / dist;
+          this.vx -= normalizedDx * pressureForce;
+          this.vy -= normalizedDy * pressureForce;
         }
 
-        // Add viscosity
+        // Add bounded viscosity
         const viscosity = 0.5;
-        const dvx = neighbor.vx - this.vx;
-        const dvy = neighbor.vy - this.vy;
-        this.vx += dvx * influence * viscosity;
-        this.vy += dvy * influence * viscosity;
+        const dvx = (neighbor.vx - this.vx) * influence * viscosity;
+        const dvy = (neighbor.vy - this.vy) * influence * viscosity;
+        this.vx += Math.min(Math.max(dvx, -5), 5);
+        this.vy += Math.min(Math.max(dvy, -5), 5);
       }
     });
 
@@ -98,12 +104,16 @@ export class Particle {
     this.vx *= damping;
     this.vy *= damping;
 
+    // Clamp velocities to prevent instability
+    this.vx = Math.min(Math.max(this.vx, -20), 20);
+    this.vy = Math.min(Math.max(this.vy, -20), 20);
+
     // Update position
     this.x += this.vx;
     this.y += this.vy;
 
     // Boundary check with energy loss and mass-based bouncing
-    const bounceEnergy = 0.6 * this.mass; // Heavier particles bounce more
+    const bounceEnergy = 0.6 * this.mass;
     if (this.x < 0 || this.x > canvasWidth) {
       this.vx *= -bounceEnergy;
       this.x = Math.max(0, Math.min(this.x, canvasWidth));

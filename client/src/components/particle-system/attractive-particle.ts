@@ -7,7 +7,7 @@ export class AttractiveParticle {
   vy: number;
   size: number = 5;
   color: string;
-  fieldRadius: number = 100; // Increased radius for more visible effect
+  fieldRadius: number = 100;
   fieldType: FieldType;
   strength: number;
   rotationSpeed: number;
@@ -33,25 +33,22 @@ export class AttractiveParticle {
         break;
     }
 
-    // Random field type
     const fieldTypes: FieldType[] = ['attraction', 'repulsion', 'vortex'];
     this.fieldType = fieldTypes[Math.floor(Math.random() * fieldTypes.length)];
 
-    // Set color based on field type
     this.color = this.fieldType === 'attraction' ? 'rgb(0, 255, 128)' : 
                  this.fieldType === 'repulsion' ? 'rgb(255, 64, 64)' : 
-                 'rgb(64, 128, 255)'; // vortex
+                 'rgb(64, 128, 255)';
 
-    // Random strength and rotation
-    this.strength = Math.random() * 2 + 1;
-    this.rotationSpeed = (Math.random() * 2 - 1) * 0.1;
+    this.strength = Math.random() * 1.5 + 0.5; // Reduced maximum strength
+    this.rotationSpeed = (Math.random() * 2 - 1) * 0.05; // Reduced rotation speed
 
     const targetX = border === 1 ? 0 : border === 3 ? canvasWidth : this.x;
     const targetY = border === 0 ? canvasHeight : border === 2 ? 0 : this.y;
 
     const dx = targetX - this.x;
     const dy = targetY - this.y;
-    const magnitude = Math.sqrt(dx * dx + dy * dy);
+    const magnitude = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
     const speed = 1;
     this.vx = (dx / magnitude) * speed;
@@ -62,12 +59,12 @@ export class AttractiveParticle {
     this.x += this.vx;
     this.y += this.vy;
 
-    // Add some wandering behavior
+    // Add bounded wandering behavior
     this.vx += (Math.random() - 0.5) * 0.1;
     this.vy += (Math.random() - 0.5) * 0.1;
 
-    // Normalize velocity
-    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    // Normalize velocity with safety check
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || 0.0001;
     if (speed > 2) {
       this.vx = (this.vx / speed) * 2;
       this.vy = (this.vy / speed) * 2;
@@ -84,25 +81,22 @@ export class AttractiveParticle {
   getAttractionForce(particleX: number, particleY: number): [number, number] {
     const dx = this.x - particleX;
     const dy = this.y - particleY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
     if (distance > this.fieldRadius) {
       return [0, 0];
     }
 
     const normalizedDist = distance / this.fieldRadius;
-    let forceMagnitude = (1 - normalizedDist) * this.strength;
+    let forceMagnitude = Math.min((1 - normalizedDist) * this.strength, 2);
 
-    // Calculate base force direction
     let forceX = (dx / distance) * forceMagnitude;
     let forceY = (dy / distance) * forceMagnitude;
 
     if (this.fieldType === 'repulsion') {
-      // Reverse force direction for repulsion
       forceX *= -1;
       forceY *= -1;
     } else if (this.fieldType === 'vortex') {
-      // Add rotational component for vortex
       const perpX = -dy / distance;
       const perpY = dx / distance;
       const rotationFactor = (1 - normalizedDist) * this.rotationSpeed;
@@ -110,16 +104,19 @@ export class AttractiveParticle {
       forceY = perpY * rotationFactor * this.strength;
     }
 
-    // Add turbulence
-    const turbulence = Math.sin(distance * 0.1 + performance.now() * 0.001) * 0.2;
+    // Add bounded turbulence
+    const turbulence = Math.sin(distance * 0.1 + performance.now() * 0.001) * 0.1;
     forceX += (Math.random() - 0.5) * turbulence;
     forceY += (Math.random() - 0.5) * turbulence;
 
-    return [forceX, forceY];
+    // Clamp final forces
+    return [
+      Math.min(Math.max(forceX, -2), 2),
+      Math.min(Math.max(forceY, -2), 2)
+    ];
   }
 
   drawField(ctx: CanvasRenderingContext2D) {
-    // Draw the force field
     const gradient = ctx.createRadialGradient(
       this.x, this.y, 0,
       this.x, this.y, this.fieldRadius
@@ -132,13 +129,11 @@ export class AttractiveParticle {
     ctx.arc(this.x, this.y, this.fieldRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw the particle core
     ctx.fillStyle = this.color;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw field type indicator
     if (this.fieldType === 'vortex') {
       const time = performance.now() * 0.001;
       for (let i = 0; i < 3; i++) {

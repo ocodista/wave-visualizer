@@ -49,7 +49,7 @@ export default function Controls({ config, onChange }: ControlsProps) {
 
         <div className="space-y-2">
           <Label className="text-white">
-            Repulsion Force: {config.repulsionForce}
+            Wave Force: {config.repulsionForce}
           </Label>
           <Slider
             value={[config.repulsionForce]}
@@ -57,7 +57,7 @@ export default function Controls({ config, onChange }: ControlsProps) {
               onChange({ ...config, repulsionForce: value })
             }
             min={20}
-            max={150}
+            max={100}
             step={5}
             className="w-full"
           />

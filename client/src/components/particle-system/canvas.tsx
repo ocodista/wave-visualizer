@@ -31,7 +31,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     let animationFrame: number;
     const animate = () => {
       if (rendererRef.current) {
-        rendererRef.current.render();
+        rendererRef.current.render(config.repulsionForce);
       }
       animationFrame = requestAnimationFrame(animate);
     };
@@ -42,17 +42,19 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       if (!canvasRef.current) return;
       canvasRef.current.width = window.innerWidth;
       canvasRef.current.height = window.innerHeight;
-      if(rendererRef.current) rendererRef.current.resize(window.innerWidth, window.innerHeight);
+      if (rendererRef.current) {
+        rendererRef.current.resize(window.innerWidth, window.innerHeight);
+      }
     };
     window.addEventListener('resize', handleResize);
 
     // Add mouse interaction
     const handleMouseMove = (event: MouseEvent) => {
-      if (!rendererRef.current) return;
-      const rect = canvasRef.current!.getBoundingClientRect();
+      if (!rendererRef.current || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      rendererRef.current.addMagneticParticle(x, y);
+      rendererRef.current.setMousePosition(x, y);
     };
     canvasRef.current.addEventListener('mousemove', handleMouseMove);
 
@@ -63,30 +65,17 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       if (canvasRef.current) {
         canvasRef.current.removeEventListener('mousemove', handleMouseMove);
       }
-      if(rendererRef.current) rendererRef.current.destroy();
+      if (rendererRef.current) {
+        rendererRef.current.destroy();
+      }
     };
-  }, [config.threadCount, config.particlesPerThread]);
-
-  const spawnMagneticParticle = () => {
-    if (!rendererRef.current || !canvasRef.current) return;
-    const x = Math.random() * canvasRef.current.width;
-    const y = Math.random() * canvasRef.current.height;
-    rendererRef.current.addMagneticParticle(x, y);
-  };
+  }, [config.threadCount, config.particlesPerThread, config.repulsionForce]);
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full"
-        style={{ background: 'black' }}
-      />
-      <Button
-        className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30"
-        onClick={spawnMagneticParticle}
-      >
-        Spawn Magnetic Particle
-      </Button>
-    </>
+    <canvas
+      ref={canvasRef}
+      className="w-full h-full"
+      style={{ background: 'black' }}
+    />
   );
 }

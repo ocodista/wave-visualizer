@@ -6,7 +6,7 @@ export const vertexShaderSource = `#version 300 es
 
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
-    gl_PointSize = 2.0;
+    gl_PointSize = 3.0;
     v_color = a_color;
   }
 `;
@@ -20,73 +20,71 @@ export const fragmentShaderSource = `#version 300 es
     vec2 coord = gl_PointCoord - vec2(0.5);
     float r = length(coord) * 2.0;
     float alpha = 1.0 - smoothstep(0.8, 1.0, r);
-    fragColor = vec4(v_color, alpha);
+    fragColor = vec4(v_color, alpha * 0.8); // Slightly transparent particles
   }
 `;
 
-// Dedicated compute vertex shader for particle physics
+// Compute shader for particle physics including wave propagation
 export const computeVertexShaderSource = `#version 300 es
   in vec2 a_position;
-  out vec2 v_position;  // Transform feedback varying
+  out vec2 v_position;
 
+  uniform vec2 u_mouse;
   uniform vec2 u_resolution;
+  uniform float u_time;
+  uniform float u_repulsionForce;
   uniform vec2 u_magnetic_positions[10];
   uniform float u_magnetic_count;
-  uniform float u_magnetic_radius;
-  uniform float u_time;
-
-  vec2 calculateMagneticForce(vec2 particlePos, vec2 magnetPos) {
-    vec2 diff = magnetPos - particlePos;
-    float dist = length(diff);
-
-    // Convert 10px radius to clip space coordinates
-    float radiusInClipSpace = (10.0 / u_resolution.x) * 2.0;
-
-    if (dist > radiusInClipSpace) {
-      return vec2(0.0);
-    }
-
-    float normalizedDist = dist / radiusInClipSpace;
-    float forceMagnitude = min(8.0, 2.0 / (normalizedDist * normalizedDist));
-
-    vec2 perpForce = vec2(-diff.y, diff.x) / dist;
-    float radialRatio = 0.8;
-    float tangentialRatio = 0.2;
-
-    return (normalize(diff) * radialRatio + perpForce * tangentialRatio) * forceMagnitude;
-  }
 
   void main() {
     vec2 position = a_position;
     vec2 velocity = vec2(0.0);
 
-    // Apply magnetic forces
-    for (int i = 0; i < 10; i++) {
-      if (float(i) >= u_magnetic_count) break;
+    // Calculate distance from mouse
+    vec2 mousePos = (u_mouse / u_resolution) * 2.0 - 1.0;
+    vec2 toMouse = position - mousePos;
+    float dist = length(toMouse);
 
-      vec2 force = calculateMagneticForce(position, u_magnetic_positions[i]);
-      velocity += force * 0.0016; // Scaled down time step for stability
+    // Wave propagation parameters
+    float waveSpeed = 3.0;
+    float waveRadius = u_time * waveSpeed;
+    float waveWidth = 0.2; // Adjusted for clip space
+
+    // Apply wave force
+    if (abs(dist - waveRadius) < waveWidth) {
+      float wavePosition = abs(dist - waveRadius) / waveWidth;
+      float waveIntensity = exp(-wavePosition * 1.5) * sin(wavePosition * 3.14159);
+      float timeDecay = exp(-u_time * (u_time < 10.0 ? 0.01 : 0.003));
+      float distanceDecay = exp(-dist * 0.5);
+      float initialBoost = u_time < 5.0 ? 2.0 : 1.0;
+      float waveForce = waveIntensity * timeDecay * distanceDecay * u_repulsionForce * 0.001 * initialBoost;
+
+      vec2 waveDir = normalize(toMouse);
+      velocity += waveDir * waveForce;
     }
+
+    // Add slight attraction to original position to prevent particles from drifting
+    vec2 homeForce = -position * 0.01;
+    velocity += homeForce;
 
     // Apply velocity with damping
     position += velocity;
-    velocity *= 0.96; // Damping
+    position *= 0.999; // Slight damping to prevent eternal oscillation
 
     // Boundary reflection
     if (abs(position.x) > 1.0) {
       position.x = sign(position.x) * 1.0;
-      velocity.x *= -0.6; // Energy loss on bounce
+      velocity.x *= -0.6;
     }
     if (abs(position.y) > 1.0) {
       position.y = sign(position.y) * 1.0;
       velocity.y *= -0.6;
     }
 
-    v_position = position;  // Output for transform feedback
+    v_position = position;
   }
 `;
 
-// Minimal fragment shader for compute pass (required by WebGL2)
 export const computeFragmentShaderSource = `#version 300 es
   precision mediump float;
   out vec4 fragColor;

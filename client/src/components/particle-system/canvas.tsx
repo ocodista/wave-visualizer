@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Particle } from "./particle";
-import { SmokeParticle } from "./smoke-particle";
-import { AttractiveParticle } from "./attractive-particle";
+import { createProgram, createShader, vertexShaderSource, fragmentShaderSource } from "./webgl-utils";
 import type { VisualizationMode } from "./controls";
 
 interface Config {
@@ -15,109 +14,197 @@ interface ParticleCanvasProps {
   config: Config;
 }
 
-interface WaveSource {
+interface MouseState {
   x: number;
   y: number;
-  time: number;
+  isDown: boolean;
 }
 
 export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
-  const smokeParticlesRef = useRef<SmokeParticle[]>([]);
-  const attractiveParticlesRef = useRef<AttractiveParticle[]>([]);
-  const waveSourcesRef = useRef<WaveSource[]>([]);
+  const programRef = useRef<WebGLProgram | null>(null);
+  const mouseRef = useRef<MouseState>({ x: 0, y: 0, isDown: false });
   const frameRef = useRef(0);
-  const isDraggingRef = useRef(false);
-  const lastAttractiveParticleTimeRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.error('Canvas not found');
+      return;
+    }
+
+    // Get WebGL context with error handling
+    const gl = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: true,
+      premultipliedAlpha: false,
+    });
+
+    if (!gl) {
+      console.error('WebGL not supported');
+      return;
+    }
+
+    // Create and compile shaders with error checking
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+    if (!vertexShader || !fragmentShader) {
+      console.error('Failed to create shaders');
+      return;
+    }
+
+    // Create and link program with error checking
+    const program = createProgram(gl, vertexShader, fragmentShader);
+    if (!program) {
+      console.error('Failed to create shader program');
+      return;
+    }
+
+    programRef.current = program;
+
+    // Get locations with error checking
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    const colorLocation = gl.getAttribLocation(program, "a_color");
+    const sizeLocation = gl.getAttribLocation(program, "a_size");
+
+    if (positionLocation === -1 || colorLocation === -1 || sizeLocation === -1) {
+      console.error('Failed to get attribute locations', {
+        positionLocation,
+        colorLocation,
+        sizeLocation
+      });
+      return;
+    }
+
+    // Create buffers with error checking
+    const positionBuffer = gl.createBuffer();
+    const colorBuffer = gl.createBuffer();
+    const sizeBuffer = gl.createBuffer();
+
+    if (!positionBuffer || !colorBuffer || !sizeBuffer) {
+      console.error('Failed to create buffers');
+      return;
+    }
 
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
     };
     resize();
     window.addEventListener("resize", resize);
 
-    const addWaveSource = (clientX: number, clientY: number) => {
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-
-      waveSourcesRef.current.push({
-        x,
-        y,
-        time: 0,
-      });
-
-      if (config.mode === "smoke") {
-        const color = `hsl(${Math.random() * 360}, 80%, 70%)`;
-        for (let i = 0; i < 5; i++) {
-          smokeParticlesRef.current.push(
-            new SmokeParticle(x, y, color)
-          );
-        }
-      }
-    };
-
     const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault();
-      if (isDraggingRef.current) {
-        addWaveSource(e.clientX, e.clientY);
-      }
+      const rect = canvas.getBoundingClientRect();
+      mouseRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        isDown: mouseRef.current.isDown
+      };
     };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      if (isDraggingRef.current) {
-        Array.from(e.touches).forEach(touch => {
-          addWaveSource(touch.clientX, touch.clientY);
-        });
-      }
+    const handleMouseDown = () => {
+      mouseRef.current.isDown = true;
     };
 
-    const handleStart = (clientX: number, clientY: number) => {
-      isDraggingRef.current = true;
-      addWaveSource(clientX, clientY);
+    const handleMouseUp = () => {
+      mouseRef.current.isDown = false;
     };
 
-    const handleEnd = () => {
-      isDraggingRef.current = false;
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      Array.from(e.touches).forEach(touch => {
-        handleStart(touch.clientX, touch.clientY);
-      });
-    };
-
-    canvas.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
     canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseup", handleEnd);
-    canvas.addEventListener("mouseleave", handleEnd);
-    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvas.addEventListener("touchend", handleEnd);
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mouseleave", handleMouseUp);
+
+    const animate = () => {
+      const particles = particlesRef.current.flat();
+      const positions: number[] = [];
+      const colors: number[] = [];
+      const sizes: number[] = [];
+
+      // Update and collect particle data
+      particles.forEach(particle => {
+        particle.update(
+          mouseRef.current.x,
+          mouseRef.current.y,
+          mouseRef.current.isDown ? config.repulsionForce * 1.5 : config.repulsionForce,
+          canvas.width,
+          canvas.height
+        );
+
+        const data = particle.getBufferData();
+        positions.push(data[0], data[1]);       // x, y
+        colors.push(data[2], data[3], data[4]); // r, g, b
+        sizes.push(data[5]);                    // size
+      });
+
+      // Clear and set viewport
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+
+      // Use shader program
+      gl.useProgram(program);
+
+      // Set uniforms
+      const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+      if (!resolutionLocation) {
+        console.error('Failed to get uniform location: u_resolution');
+        return;
+      }
+      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+
+      // Update position buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      // Update color buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(colorLocation);
+      gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
+
+      // Update size buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sizes), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(sizeLocation);
+      gl.vertexAttribPointer(sizeLocation, 1, gl.FLOAT, false, 0, 0);
+
+      // Enable blending
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+      // Draw points
+      gl.drawArrays(gl.POINTS, 0, particles.length);
+
+      frameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
 
     return () => {
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
       canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mouseup", handleEnd);
-      canvas.removeEventListener("mouseleave", handleEnd);
-      canvas.removeEventListener("touchstart", handleTouchStart);
-      canvas.removeEventListener("touchmove", handleTouchMove);
-      canvas.removeEventListener("touchend", handleEnd);
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mouseleave", handleMouseUp);
       cancelAnimationFrame(frameRef.current);
-    };
-  }, [config.mode]);
 
+      // Cleanup WebGL resources
+      gl.deleteProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      gl.deleteBuffer(positionBuffer);
+      gl.deleteBuffer(colorBuffer);
+      gl.deleteBuffer(sizeBuffer);
+    };
+  }, [config.repulsionForce]);
+
+  // Initialize particles when thread count or particles per thread changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -131,170 +218,14 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
       for (let j = 0; j < config.particlesPerThread; j++) {
         const y = (canvas.height / (config.particlesPerThread - 1)) * j;
-        const particle = new Particle(x, y);
-        if (config.mode === "monochrome") {
-          particle.color = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})`;
-        }
-        thread.push(particle);
+        thread.push(new Particle(x, y));
       }
 
       threads.push(thread);
     }
 
     particlesRef.current = threads;
-    smokeParticlesRef.current = [];
-    attractiveParticlesRef.current = [];
-    waveSourcesRef.current = [];
-  }, [config.threadCount, config.particlesPerThread, config.mode]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
-
-    const animate = () => {
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const currentTime = performance.now();
-      if (currentTime - lastAttractiveParticleTimeRef.current > 2000) {
-        attractiveParticlesRef.current.push(new AttractiveParticle(canvas.width, canvas.height));
-        lastAttractiveParticleTimeRef.current = currentTime;
-      }
-
-      attractiveParticlesRef.current = attractiveParticlesRef.current.filter(particle => {
-        const isActive = particle.update(canvas.width, canvas.height);
-        if (isActive) {
-          particle.drawField(ctx);
-        }
-        return isActive;
-      });
-
-      if (config.mode === "smoke") {
-        ctx.globalCompositeOperation = "screen";
-        smokeParticlesRef.current = smokeParticlesRef.current.filter(particle => {
-          const isAlive = particle.update(
-            waveSourcesRef.current[0]?.x || 0,
-            waveSourcesRef.current[0]?.y || 0,
-            config.repulsionForce,
-            canvas.width,
-            canvas.height
-          );
-
-          if (isAlive) {
-            ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            ctx.fillStyle = `${particle.color.split(")")[0]}, ${particle.opacity})`;
-            ctx.fill();
-          }
-
-          return isAlive;
-        });
-        ctx.globalCompositeOperation = "source-over";
-      } else {
-        waveSourcesRef.current = waveSourcesRef.current.filter(source => {
-          source.time += 1;
-          return source.time < 300;
-        });
-
-        const allParticles = particlesRef.current.flat();
-
-        particlesRef.current.forEach((thread) => {
-          thread.forEach(particle => {
-            if (waveSourcesRef.current.length > 0) {
-              waveSourcesRef.current.forEach(source => {
-                particle.update(
-                  source.x,
-                  source.y,
-                  isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
-                  source.time,
-                  canvas.width,
-                  canvas.height,
-                  allParticles
-                );
-              });
-            } else {
-              // Update with default values when no wave sources
-              particle.update(
-                particle.x,
-                particle.y,
-                config.repulsionForce,
-                0,
-                canvas.width,
-                canvas.height,
-                allParticles
-              );
-            }
-
-            attractiveParticlesRef.current.forEach(attractor => {
-              const [forceX, forceY] = attractor.getAttractionForce(particle.x, particle.y);
-              particle.vx += forceX * 0.1;
-              particle.vy += forceY * 0.1;
-            });
-          });
-
-          if (thread.length >= 2) {
-            ctx.beginPath();
-            thread.forEach((particle, i) => {
-              if (i === 0) {
-                ctx.moveTo(particle.x, particle.y);
-              } else {
-                const prevParticle = thread[i - 1];
-
-                if (config.mode === "hair") {
-                  const cp1x = prevParticle.x + (particle.x - prevParticle.x) * 0.25;
-                  const cp1y = prevParticle.y + (particle.y - prevParticle.y) * 0.25;
-                  const cp2x = prevParticle.x + (particle.x - prevParticle.x) * 0.75;
-                  const cp2y = prevParticle.y + (particle.y - prevParticle.y) * 0.75;
-                  ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, particle.x, particle.y);
-                } else {
-                  const gradient = ctx.createLinearGradient(
-                    prevParticle.x, prevParticle.y,
-                    particle.x, particle.y
-                  );
-
-                  const densityFactor = Math.min(particle.density, 2);
-                  const alpha = 0.3 + densityFactor * 0.3;
-
-                  gradient.addColorStop(0, prevParticle.color.replace(')', `, ${alpha})`));
-                  gradient.addColorStop(1, particle.color.replace(')', `, ${alpha})`));
-
-                  ctx.lineWidth = 1 + densityFactor;
-                  ctx.lineTo(particle.x, particle.y);
-                  ctx.strokeStyle = gradient;
-                  ctx.stroke();
-                  ctx.beginPath();
-                  ctx.moveTo(particle.x, particle.y);
-                }
-              }
-            });
-
-            if (config.mode === "hair") {
-              ctx.strokeStyle = thread[0].color;
-              ctx.lineWidth = 1;
-              ctx.stroke();
-            }
-          }
-
-          if (config.mode !== "hair") {
-            thread.forEach(particle => {
-              const particleSize = 2 + particle.density * 0.5;
-              ctx.fillStyle = particle.color;
-              ctx.beginPath();
-              ctx.arc(particle.x, particle.y, particleSize, 0, Math.PI * 2);
-              ctx.fill();
-            });
-          }
-        });
-      }
-
-      frameRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [config.mode, config.repulsionForce]);
+  }, [config.threadCount, config.particlesPerThread]);
 
   return (
     <canvas ref={canvasRef} className="w-full h-full select-none" />

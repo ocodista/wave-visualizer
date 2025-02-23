@@ -1,9 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
 
-export type VisualizationMode = "threads" | "smoke" | "monochrome" | "hair";
+export type VisualizationMode = "default";
 
 interface Config {
   threadCount: number;
@@ -18,24 +17,9 @@ interface ControlsProps {
 }
 
 export default function Controls({ config, onChange }: ControlsProps) {
-  const modes: VisualizationMode[] = ["threads", "smoke", "monochrome", "hair"];
-
   return (
     <Card className="p-4 bg-black/80 border-white/20 backdrop-blur-sm w-[300px]">
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {modes.map((mode) => (
-            <Button
-              key={mode}
-              variant={config.mode === mode ? "default" : "outline"}
-              onClick={() => onChange({ ...config, mode })}
-              className="capitalize"
-            >
-              {mode}
-            </Button>
-          ))}
-        </div>
-
         <div className="space-y-2">
           <Label className="text-white">Threads: {config.threadCount}</Label>
           <Slider

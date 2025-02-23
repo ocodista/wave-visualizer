@@ -5,13 +5,17 @@ export class Particle {
   homeY: number;
   vx: number = 0;
   vy: number = 0;
+  mass: number;
   color: string;
+  pressure: number = 0;
+  density: number = 0;
 
   constructor(x: number, y: number) {
     this.x = x;
     this.y = y;
     this.homeX = x;
     this.homeY = y;
+    this.mass = Math.random() * 0.5 + 0.5; // Random mass between 0.5 and 1
     const hue = Math.random() * 360;
     this.color = `hsl(${hue}, 80%, 70%)`;
   }
@@ -22,7 +26,8 @@ export class Particle {
     repulsionForce: number,
     time: number,
     canvasWidth: number,
-    canvasHeight: number
+    canvasHeight: number,
+    neighbors: Particle[] = []
   ) {
     // Calculate distance to wave source
     const dx = this.x - mouseX;
@@ -38,22 +43,55 @@ export class Particle {
     if (Math.abs(distance - waveRadius) < waveWidth) {
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
-      const timeDecay = Math.exp(-time * 0.02); // Slower decay rate (was 0.05)
+      const timeDecay = Math.exp(-time * 0.02);
       const distanceDecay = Math.exp(-distance * 0.001);
       const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02;
 
       const angle = Math.atan2(dy, dx);
-      this.vx += Math.cos(angle) * waveForce;
-      this.vy += Math.sin(angle) * waveForce;
+      this.vx += Math.cos(angle) * waveForce / this.mass;
+      this.vy += Math.sin(angle) * waveForce / this.mass;
     }
+
+    // Calculate pressure and density from neighbors
+    this.pressure = 0;
+    this.density = 0;
+    const smoothingRadius = 30;
+
+    neighbors.forEach(neighbor => {
+      if (neighbor === this) return;
+
+      const dx = neighbor.x - this.x;
+      const dy = neighbor.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < smoothingRadius) {
+        // Calculate density
+        const influence = 1 - dist / smoothingRadius;
+        this.density += neighbor.mass * influence;
+
+        // Add pressure-based forces
+        if (this.density > 1) {
+          const pressureForce = (this.density - 1) * 0.1;
+          this.vx -= (dx / dist) * pressureForce;
+          this.vy -= (dy / dist) * pressureForce;
+        }
+
+        // Add viscosity
+        const viscosity = 0.5;
+        const dvx = neighbor.vx - this.vx;
+        const dvy = neighbor.vy - this.vy;
+        this.vx += dvx * influence * viscosity;
+        this.vy += dvy * influence * viscosity;
+      }
+    });
 
     // Apply spring force to return to home position
     const springStrength = 0.025;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
 
-    this.vx += homeForceX;
-    this.vy += homeForceY;
+    this.vx += homeForceX / this.mass;
+    this.vy += homeForceY / this.mass;
 
     // Apply damping
     const damping = 0.96;
@@ -64,8 +102,8 @@ export class Particle {
     this.x += this.vx;
     this.y += this.vy;
 
-    // Boundary check with energy loss
-    const bounceEnergy = 0.6;
+    // Boundary check with energy loss and mass-based bouncing
+    const bounceEnergy = 0.6 * this.mass; // Heavier particles bounce more
     if (this.x < 0 || this.x > canvasWidth) {
       this.vx *= -bounceEnergy;
       this.x = Math.max(0, Math.min(this.x, canvasWidth));

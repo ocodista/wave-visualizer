@@ -68,9 +68,9 @@ export class WebGLRenderer {
 
     this.setupBuffers();
 
-    // Enable alpha blending
+    // Enable alpha blending (original line remains, but blendFunc is updated below)
     this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    
   }
 
   private createShader(type: number, source: string): WebGLShader {
@@ -113,9 +113,20 @@ export class WebGLRenderer {
       this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particlePositions, this.gl.DYNAMIC_COPY);
     });
 
-    // Initialize color buffer
+    // Initialize color buffer with more vibrant colors
+    for (let i = 0; i < this.particleCount; i++) {
+      const hue = (i / this.particleCount) * 360;
+      const [r, g, b] = this.hslToRgb(hue / 360, 1.0, 0.7); // Increased saturation
+      this.particleColors[i * 3] = r;
+      this.particleColors[i * 3 + 1] = g;
+      this.particleColors[i * 3 + 2] = b;
+    }
+
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particleColors, this.gl.STATIC_DRAW);
+
+    // Enable additive blending for more vibrant particles
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
   }
 
   public setMousePosition(x: number, y: number): void {

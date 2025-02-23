@@ -6,7 +6,7 @@ export const vertexShaderSource = `#version 300 es
 
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
-    gl_PointSize = 3.0;
+    gl_PointSize = 6.0; // Increased point size for better visibility
     v_color = a_color;
   }
 `;
@@ -20,7 +20,7 @@ export const fragmentShaderSource = `#version 300 es
     vec2 coord = gl_PointCoord - vec2(0.5);
     float r = length(coord) * 2.0;
     float alpha = 1.0 - smoothstep(0.8, 1.0, r);
-    fragColor = vec4(v_color, alpha * 0.8); // Slightly transparent particles
+    fragColor = vec4(v_color, alpha); // Full opacity
   }
 `;
 
@@ -33,8 +33,6 @@ export const computeVertexShaderSource = `#version 300 es
   uniform vec2 u_resolution;
   uniform float u_time;
   uniform float u_repulsionForce;
-  uniform vec2 u_magnetic_positions[10];
-  uniform float u_magnetic_count;
 
   void main() {
     vec2 position = a_position;
@@ -57,7 +55,7 @@ export const computeVertexShaderSource = `#version 300 es
       float timeDecay = exp(-u_time * (u_time < 10.0 ? 0.01 : 0.003));
       float distanceDecay = exp(-dist * 0.5);
       float initialBoost = u_time < 5.0 ? 2.0 : 1.0;
-      float waveForce = waveIntensity * timeDecay * distanceDecay * u_repulsionForce * 0.001 * initialBoost;
+      float waveForce = waveIntensity * timeDecay * distanceDecay * u_repulsionForce * 0.002 * initialBoost; // Increased force multiplier
 
       vec2 waveDir = normalize(toMouse);
       velocity += waveDir * waveForce;

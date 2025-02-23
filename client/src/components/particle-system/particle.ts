@@ -26,22 +26,23 @@ export class Particle {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Wave propagation parameters
-    const waveSpeed = 2; // Slower wave propagation
+    const waveSpeed = 3; // Slightly faster for more immediate feedback
     const waveRadius = time * waveSpeed; // How far the wave has traveled
-    const waveWidth = Math.max(30, distance * 0.1); // Dynamic wave width based on distance
+    const waveWidth = 40; // Fixed width for more consistent ripples
 
     // Only apply force if the wave has reached this particle
-    if (time > 0 && Math.abs(distance - waveRadius) < waveWidth) {
-      // Calculate wave intensity based on position within the wave pulse
+    if (Math.abs(distance - waveRadius) < waveWidth) {
+      // Calculate wave intensity with stronger initial pulse
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
-      const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI);
+      const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
 
-      // Time-based decay for overall wave strength
-      const timeDecay = Math.exp(-time * 0.002); // Slower decay for longer-lasting waves
-      const distanceDecay = Math.exp(-distance * 0.001); // Additional distance-based decay
+      // More aggressive initial time decay that softens over time
+      const timeDecay = Math.exp(-time * (time < 10 ? 0.01 : 0.003));
+      const distanceDecay = Math.exp(-distance * 0.001);
 
-      // Calculate final wave force
-      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.015;
+      // Enhanced initial force for quick clicks
+      const initialBoost = time < 5 ? 2.0 : 1.0;
+      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02 * initialBoost;
 
       // Apply force in radial direction
       const angle = Math.atan2(dy, dx);
@@ -50,7 +51,7 @@ export class Particle {
     }
 
     // Apply spring force to return to home position
-    const springStrength = 0.025; // Softer return to position
+    const springStrength = 0.025;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
 
@@ -58,7 +59,7 @@ export class Particle {
     this.vy += homeForceY;
 
     // Apply damping for smooth movement
-    const damping = 0.96; // Slightly increased damping
+    const damping = 0.96;
     this.vx *= damping;
     this.vy *= damping;
 
@@ -67,7 +68,7 @@ export class Particle {
     this.y += this.vy;
 
     // Add boundary reflection with energy loss
-    const bounceEnergy = 0.6; // Energy retained after bounce
+    const bounceEnergy = 0.6;
     if (this.x < 0 || this.x > canvasWidth) {
       this.vx *= -bounceEnergy;
       this.x = Math.max(0, Math.min(this.x, canvasWidth));

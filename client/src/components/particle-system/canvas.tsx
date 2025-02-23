@@ -11,12 +11,17 @@ interface ParticleCanvasProps {
   config: Config;
 }
 
+interface WaveSource {
+  x: number;
+  y: number;
+  time: number;
+}
+
 export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
-  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
-  const timeRef = useRef(0);
   const isDraggingRef = useRef(false);
 
   useEffect(() => {
@@ -31,39 +36,46 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     window.addEventListener("resize", resize);
 
     // Enhanced mouse/touch tracking
-    const updateMousePosition = (clientX: number, clientY: number) => {
+    const addWaveSource = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      mouseRef.current = {
+      waveSourcesRef.current.push({
         x: clientX - rect.left,
         y: clientY - rect.top,
-      };
-      // Reset time to create new wave
-      timeRef.current = 0;
+        time: 0,
+      });
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault();
       if (isDraggingRef.current) {
-        updateMousePosition(e.clientX, e.clientY);
+        addWaveSource(e.clientX, e.clientY);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (isDraggingRef.current) {
-        const touch = e.touches[0];
-        updateMousePosition(touch.clientX, touch.clientY);
+        // Handle all active touch points
+        Array.from(e.touches).forEach(touch => {
+          addWaveSource(touch.clientX, touch.clientY);
+        });
       }
     };
 
     const handleStart = (clientX: number, clientY: number) => {
       isDraggingRef.current = true;
-      updateMousePosition(clientX, clientY);
+      addWaveSource(clientX, clientY);
     };
 
     const handleEnd = () => {
       isDraggingRef.current = false;
-      mouseRef.current = { x: -1000, y: -1000 };
+    };
+
+    // Handle multiple touch points
+    const handleTouchStart = (e: TouchEvent) => {
+      Array.from(e.touches).forEach(touch => {
+        handleStart(touch.clientX, touch.clientY);
+      });
     };
 
     canvas.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
@@ -71,10 +83,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     canvas.addEventListener("mouseup", handleEnd);
     canvas.addEventListener("mouseleave", handleEnd);
 
-    canvas.addEventListener("touchstart", (e) => {
-      const touch = e.touches[0];
-      handleStart(touch.clientX, touch.clientY);
-    });
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
     canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvas.addEventListener("touchend", handleEnd);
 
@@ -122,22 +131,26 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (isDraggingRef.current) {
-        timeRef.current += 1;
-      }
+      // Update wave sources and remove old ones
+      waveSourcesRef.current = waveSourcesRef.current.filter(source => {
+        source.time += 1;
+        return source.time < 200; // Remove sources after they've existed for a while
+      });
 
       // Update and draw particles
       particlesRef.current.forEach(thread => {
-        // Update particles
+        // Update particles with all active wave sources
         thread.forEach(particle => {
-          particle.update(
-            mouseRef.current.x,
-            mouseRef.current.y,
-            isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
-            timeRef.current,
-            canvas.width,
-            canvas.height
-          );
+          waveSourcesRef.current.forEach(source => {
+            particle.update(
+              source.x,
+              source.y,
+              isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
+              source.time,
+              canvas.width,
+              canvas.height
+            );
+          });
         });
 
         // Draw thread lines with gradient based on particle colors
@@ -182,5 +195,5 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     return () => cancelAnimationFrame(frameRef.current);
   }, [config.repulsionForce]);
 
-  return <canvas ref={canvasRef} className="w-full h-full" />;
+  return <canvas ref={canvasRef} className="w-full h-full select-none" />;
 }

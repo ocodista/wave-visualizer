@@ -16,6 +16,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const particlesRef = useRef<Particle[][]>([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const frameRef = useRef(0);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -28,22 +29,56 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    // Mouse tracking
-    const handleMouseMove = (e: MouseEvent) => {
+    // Enhanced mouse/touch tracking
+    const updateMousePosition = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: clientX - rect.left,
+        y: clientY - rect.top,
       };
     };
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseleave", () => {
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      updateMousePosition(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      updateMousePosition(touch.clientX, touch.clientY);
+    };
+
+    const handleStart = () => {
+      isDraggingRef.current = true;
+    };
+
+    const handleEnd = () => {
+      isDraggingRef.current = false;
       mouseRef.current = { x: -1000, y: -1000 };
-    });
+    };
+
+    // Add touch and mouse event listeners
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mousedown", handleStart);
+    canvas.addEventListener("mouseup", handleEnd);
+    canvas.addEventListener("mouseleave", handleEnd);
+
+    canvas.addEventListener("touchstart", handleStart);
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleEnd);
 
     return () => {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mousedown", handleStart);
+      canvas.removeEventListener("mouseup", handleEnd);
+      canvas.removeEventListener("mouseleave", handleEnd);
+
+      canvas.removeEventListener("touchstart", handleStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleEnd);
+
       cancelAnimationFrame(frameRef.current);
     };
   }, []);
@@ -59,12 +94,12 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     for (let i = 0; i < config.threadCount; i++) {
       const thread: Particle[] = [];
       const x = spacing * (i + 1);
-      
+
       for (let j = 0; j < config.particlesPerThread; j++) {
         const y = (canvas.height / (config.particlesPerThread - 1)) * j;
         thread.push(new Particle(x, y));
       }
-      
+
       threads.push(thread);
     }
 
@@ -82,16 +117,16 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Update and draw particles
-      ctx.strokeStyle = "white";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
       ctx.lineWidth = 1;
-      
+
       particlesRef.current.forEach(thread => {
         // Update particles
         thread.forEach(particle => {
           particle.update(
             mouseRef.current.x,
             mouseRef.current.y,
-            config.repulsionForce
+            isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce
           );
         });
 
@@ -106,8 +141,8 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         });
         ctx.stroke();
 
-        // Draw particles
-        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        // Draw particles with glow effect
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
         thread.forEach(particle => {
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);

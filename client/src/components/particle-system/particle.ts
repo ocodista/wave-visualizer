@@ -18,26 +18,27 @@ export class Particle {
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Apply repulsion force
-    if (distance < 100) {
-      const force = (1 - distance / 100) * repulsionForce;
-      this.vx += (dx / distance) * force * 0.1;
-      this.vy += (dy / distance) * force * 0.1;
+
+    // Apply repulsion force with velocity-based movement
+    if (distance < 150) {
+      const force = (1 - distance / 150) * repulsionForce;
+      // Add velocity instead of direct position change
+      this.vx += (dx / distance) * force * 0.2;
+      this.vy += (dy / distance) * force * 0.2;
     }
 
-    // Apply spring force to return to home position
-    const homeForceX = (this.homeX - this.x) * 0.1;
-    const homeForceY = (this.homeY - this.y) * 0.1;
-    
+    // Apply spring force to return to home position with natural oscillation
+    const homeForceX = (this.homeX - this.x) * 0.05;
+    const homeForceY = (this.homeY - this.y) * 0.05;
+
     this.vx += homeForceX;
     this.vy += homeForceY;
 
-    // Apply damping
-    this.vx *= 0.8;
-    this.vy *= 0.8;
+    // Apply damping for more natural movement
+    this.vx *= 0.95;
+    this.vy *= 0.95;
 
-    // Update position
+    // Update position based on velocity
     this.x += this.vx;
     this.y += this.vy;
   }

@@ -14,17 +14,17 @@ interface ParticleCanvasProps {
   config: Config;
 }
 
-interface MouseState {
+interface WaveSource {
   x: number;
   y: number;
-  isDown: boolean;
+  time: number;
 }
 
 export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
   const programRef = useRef<WebGLProgram | null>(null);
-  const mouseRef = useRef<MouseState>({ x: 0, y: 0, isDown: false });
+  const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
 
   useEffect(() => {
@@ -96,27 +96,19 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mouseRef.current = {
+      waveSourcesRef.current.push({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        isDown: mouseRef.current.isDown
-      };
+        time: 0
+      });
     };
 
-    const handleMouseDown = () => {
-      mouseRef.current.isDown = true;
-    };
-
-    const handleMouseUp = () => {
-      mouseRef.current.isDown = false;
-    };
-
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("mouseup", handleMouseUp);
-    canvas.addEventListener("mouseleave", handleMouseUp);
+    canvas.addEventListener("mousedown", handleClick);
+    canvas.addEventListener("mousemove", (e) => {
+      if (e.buttons > 0) handleClick(e);
+    });
 
     const animate = () => {
       const particles = particlesRef.current.flat();
@@ -124,15 +116,24 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       const colors: number[] = [];
       const sizes: number[] = [];
 
+      // Update wave sources
+      waveSourcesRef.current = waveSourcesRef.current.filter(source => {
+        source.time += 1;
+        return source.time < 300; // Remove after 5 seconds
+      });
+
       // Update and collect particle data
       particles.forEach(particle => {
-        particle.update(
-          mouseRef.current.x,
-          mouseRef.current.y,
-          mouseRef.current.isDown ? config.repulsionForce * 1.5 : config.repulsionForce,
-          canvas.width,
-          canvas.height
-        );
+        waveSourcesRef.current.forEach(source => {
+          particle.update(
+            source.x,
+            source.y,
+            config.repulsionForce,
+            source.time,
+            canvas.width,
+            canvas.height
+          );
+        });
 
         const data = particle.getBufferData();
         positions.push(data[0], data[1]);       // x, y
@@ -188,10 +189,10 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     return () => {
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mousedown", handleMouseDown);
-      canvas.removeEventListener("mouseup", handleMouseUp);
-      canvas.removeEventListener("mouseleave", handleMouseUp);
+      canvas.removeEventListener("mousedown", handleClick);
+      canvas.removeEventListener("mousemove", (e) => {
+        if (e.buttons > 0) handleClick(e);
+      });
       cancelAnimationFrame(frameRef.current);
 
       // Cleanup WebGL resources

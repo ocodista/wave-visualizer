@@ -1,6 +1,8 @@
 export class Particle {
   x: number;
   y: number;
+  homeX: number;
+  homeY: number;
   vx: number = 0;
   vy: number = 0;
   color: [number, number, number];
@@ -9,6 +11,9 @@ export class Particle {
   constructor(x: number, y: number) {
     this.x = x;
     this.y = y;
+    this.homeX = x;
+    this.homeY = y;
+
     // Convert HSL to RGB for WebGL
     const hue = Math.random() * 360;
     const s = 0.8;
@@ -36,18 +41,40 @@ export class Particle {
     this.size = 4;
   }
 
-  update(mouseX: number, mouseY: number, force: number, canvasWidth: number, canvasHeight: number) {
-    // Calculate distance to mouse
+  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
+    // Calculate distance to wave source
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
-    if (distance < 100) {
+    // Wave parameters
+    const waveSpeed = 3;
+    const waveRadius = time * waveSpeed;
+    const waveWidth = 40;
+
+    // Apply wave force if within range
+    if (Math.abs(distance - waveRadius) < waveWidth) {
+      const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
+      const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
+      const timeDecay = Math.exp(-time * 0.02);
+      const distanceDecay = Math.exp(-distance * 0.001);
+      const waveForce = Math.min(10, waveIntensity * timeDecay * distanceDecay * force * 0.02);
+
       const angle = Math.atan2(dy, dx);
-      const pushForce = (1 - distance / 100) * force * 0.02;
-      this.vx += Math.cos(angle) * pushForce;
-      this.vy += Math.sin(angle) * pushForce;
+      const forceX = Math.cos(angle) * waveForce;
+      const forceY = Math.sin(angle) * waveForce;
+
+      // Add clamped forces
+      this.vx += Math.min(Math.max(forceX, -10), 10);
+      this.vy += Math.min(Math.max(forceY, -10), 10);
     }
+
+    // Apply spring force to return to home position
+    const springStrength = 0.025;
+    const homeForceX = (this.homeX - this.x) * springStrength;
+    const homeForceY = (this.homeY - this.y) * springStrength;
+    this.vx += homeForceX;
+    this.vy += homeForceY;
 
     // Apply damping
     this.vx *= 0.95;

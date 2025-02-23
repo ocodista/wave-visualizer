@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { WebGLRenderer } from "./webgl/renderer";
+import p5 from "p5";
+import { Particle } from "./particle";
+import { AttractiveParticle } from "./attractive-particle";
 
 interface Config {
   threadCount: number;
@@ -13,114 +15,104 @@ interface ParticleCanvasProps {
 }
 
 export default function ParticleCanvas({ config }: ParticleCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<WebGLRenderer | null>(null);
-  const isDraggingRef = useRef(false);
-  const frameRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [sketch, setSketch] = useState<p5 | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!containerRef.current) return;
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      if (rendererRef.current) {
-        rendererRef.current.render(); // Re-render on resize
-      }
-    };
+    let particles: Particle[] = [];
+    let attractiveParticles: AttractiveParticle[] = [];
+    let startTime = Date.now();
+    let isDragging = false;
 
-    try {
-      // Initialize WebGL renderer
-      const totalParticles = config.threadCount * config.particlesPerThread;
-      rendererRef.current = new WebGLRenderer(canvas, totalParticles);
+    const s = new p5((p: p5) => {
+      p.setup = () => {
+        const canvas = p.createCanvas(window.innerWidth, window.innerHeight);
+        canvas.mousePressed(() => isDragging = true);
+        canvas.mouseReleased(() => isDragging = false);
 
-      resize();
-      window.addEventListener("resize", resize);
+        // Initialize particles in a grid
+        const totalParticles = config.threadCount * config.particlesPerThread;
+        const cols = Math.ceil(Math.sqrt(totalParticles));
+        const spacing = Math.min(p.width, p.height) / cols;
 
-      const addMagneticParticle = (clientX: number, clientY: number) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-        rendererRef.current?.addMagneticParticle(x, y);
-      };
-
-      const handleMouseMove = (e: MouseEvent) => {
-        e.preventDefault();
-        if (isDraggingRef.current) {
-          addMagneticParticle(e.clientX, e.clientY);
+        for (let i = 0; i < totalParticles; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * spacing + spacing / 2;
+          const y = row * spacing + spacing / 2;
+          particles.push(new Particle(x, y));
         }
+
+        p.frameRate(60);
+        p.blendMode(p.ADD);
       };
 
-      const handleTouchMove = (e: TouchEvent) => {
-        e.preventDefault();
-        if (isDraggingRef.current) {
-          Array.from(e.touches).forEach(touch => {
-            addMagneticParticle(touch.clientX, touch.clientY);
-          });
+      p.draw = () => {
+        p.background(0);
+        const time = (Date.now() - startTime) / 1000;
+
+        // Handle drag interaction
+        if (isDragging) {
+          attractiveParticles.push(new AttractiveParticle(p.width, p.height));
         }
-      };
 
-      const handleStart = (clientX: number, clientY: number) => {
-        isDraggingRef.current = true;
-        addMagneticParticle(clientX, clientY);
-      };
+        // Update attractive particles
+        attractiveParticles = attractiveParticles.filter(particle => 
+          particle.update(p.width, p.height)
+        );
 
-      const handleEnd = () => {
-        isDraggingRef.current = false;
-      };
+        // Update and draw particles
+        particles.forEach(particle => {
+          particle.update(
+            p.mouseX,
+            p.mouseY,
+            config.repulsionForce,
+            time,
+            p.width,
+            p.height,
+            attractiveParticles
+          );
 
-      const handleTouchStart = (e: TouchEvent) => {
-        Array.from(e.touches).forEach(touch => {
-          handleStart(touch.clientX, touch.clientY);
+          // Draw particle
+          p.fill(particle.color);
+          p.noStroke();
+          p.circle(particle.x, particle.y, 4);
+        });
+
+        // Draw magnetic particles
+        attractiveParticles.forEach(particle => {
+          p.fill(200, 200, 200, 50);
+          p.noStroke();
+          p.circle(particle.x, particle.y, 20);
         });
       };
 
-      canvas.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
-      canvas.addEventListener("mousemove", handleMouseMove);
-      canvas.addEventListener("mouseup", handleEnd);
-      canvas.addEventListener("mouseleave", handleEnd);
-      canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-      canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-      canvas.addEventListener("touchend", handleEnd);
-
-      // Animation loop
-      const animate = () => {
-        if (rendererRef.current) {
-          rendererRef.current.render();
-        }
-        frameRef.current = requestAnimationFrame(animate);
+      p.windowResized = () => {
+        p.resizeCanvas(window.innerWidth, window.innerHeight);
       };
+    });
 
-      animate();
+    setSketch(s);
 
-      return () => {
-        window.removeEventListener("resize", resize);
-        canvas.removeEventListener("mousemove", handleMouseMove);
-        canvas.removeEventListener("mouseup", handleEnd);
-        canvas.removeEventListener("mouseleave", handleEnd);
-        canvas.removeEventListener("touchmove", handleTouchMove);
-        canvas.removeEventListener("touchend", handleEnd);
-        cancelAnimationFrame(frameRef.current);
-      };
-    } catch (error) {
-      console.error("WebGL initialization failed:", error);
-      // Fallback to existing canvas-based rendering could be implemented here
-    }
-  }, [config.threadCount, config.particlesPerThread]);
+    return () => {
+      s.remove();
+    };
+  }, [config.threadCount, config.particlesPerThread, config.repulsionForce]);
 
   const spawnMagneticParticle = () => {
-    if (!canvasRef.current || !rendererRef.current) return;
-
-    const canvas = canvasRef.current;
-    const x = Math.random() * canvas.width;
-    const y = Math.random() * canvas.height;
-    rendererRef.current.addMagneticParticle(x, y);
+    if (!sketch) return;
+    const x = Math.random() * sketch.width;
+    const y = Math.random() * sketch.height;
+    const particle = new AttractiveParticle(sketch.width, sketch.height);
+    particle.x = x;
+    particle.y = y;
   };
 
   return (
     <>
-      <canvas ref={canvasRef} className="w-full h-full select-none" />
+      <div ref={containerRef} className="w-full h-full" />
       <Button
         className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30"
         onClick={spawnMagneticParticle}

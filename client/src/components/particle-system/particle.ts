@@ -6,8 +6,6 @@ export class Particle {
   vx: number = 0;
   vy: number = 0;
   color: string;
-  waveOffset: number = 0;
-  wavePhase: number = Math.random() * Math.PI * 2;
 
   constructor(x: number, y: number) {
     this.x = x;

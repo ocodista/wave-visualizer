@@ -31,50 +31,44 @@ export class Particle {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Wave propagation parameters
-    const waveSpeed = 2;
+    const waveSpeed = 5; // Increased speed
     const waveRadius = time * waveSpeed;
-    const waveWidth = 100; // Wider wave effect for better visibility
+    const waveWidth = 150; // Wider wave effect
 
     // Apply wave force
     if (Math.abs(distance - waveRadius) < waveWidth) {
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
-      const timeDecay = Math.exp(-time * (time < 10 ? 0.01 : 0.003));
-      const distanceDecay = Math.exp(-distance * 0.0005); // Reduced decay for longer-range effect
-      const initialBoost = time < 5 ? 2.0 : 1.0;
-      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.15 * initialBoost;
+      const timeDecay = Math.exp(-time * 0.5); // Faster decay
+      const distanceDecay = Math.exp(-distance * 0.001); // Longer range effect
+      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.3; // Increased force
 
       const angle = Math.atan2(dy, dx);
       this.vx += Math.cos(angle) * waveForce;
       this.vy += Math.sin(angle) * waveForce;
     }
 
-    // Apply spring force to return to home position
-    const springStrength = 0.015; // Reduced for more dynamic movement
+    // Strong spring force to return to home position
+    const springStrength = 0.1; // Increased strength
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
 
     this.vx += homeForceX;
     this.vy += homeForceY;
 
-    // Apply damping for smooth movement
-    const damping = 0.98; // Increased for smoother motion
+    // Apply stronger damping for crisper movement
+    const damping = 0.85; // Increased damping
     this.vx *= damping;
     this.vy *= damping;
 
-    // Update position based on velocity
+    // Update position
     this.x += this.vx;
     this.y += this.vy;
 
-    // Add boundary reflection with energy loss
-    const bounceEnergy = 0.6;
-    if (this.x < 0 || this.x > canvasWidth) {
-      this.vx *= -bounceEnergy;
-      this.x = Math.max(0, Math.min(this.x, canvasWidth));
-    }
-    if (this.y < 0 || this.y > canvasHeight) {
-      this.vy *= -bounceEnergy;
-      this.y = Math.max(0, Math.min(this.y, canvasHeight));
-    }
+    // Hard boundary constraints
+    if (this.x < 0) this.x = 0;
+    if (this.x > canvasWidth) this.x = canvasWidth;
+    if (this.y < 0) this.y = 0;
+    if (this.y > canvasHeight) this.y = canvasHeight;
   }
 }

@@ -24,9 +24,8 @@ export class Particle {
     time: number,
     canvasWidth: number,
     canvasHeight: number,
-    attractiveParticles: { x: number; y: number; getAttractionForce: (x: number, y: number) => [number, number] }[] = []
   ) {
-    // Calculate wave force
+    // Calculate distance from mouse
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy);

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { WebGLRenderer } from "./webgl/renderer";
+import { useEffect, useRef } from "react";
 import { Canvas2DRenderer } from "./canvas2d/renderer";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,9 +14,8 @@ interface ParticleCanvasProps {
 
 export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<WebGLRenderer | Canvas2DRenderer | null>(null);
+  const rendererRef = useRef<Canvas2DRenderer | null>(null);
   const { toast } = useToast();
-  const [is2DFallback, setIs2DFallback] = useState(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -29,25 +27,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
       // Initialize renderer
       const totalParticles = config.threadCount * config.particlesPerThread;
-      try {
-        // Try WebGL first
-        rendererRef.current = new WebGLRenderer(canvasRef.current, totalParticles);
-      } catch (webglError) {
-        console.log("WebGL not available, falling back to Canvas2D renderer", webglError);
-        try {
-          // Fallback to Canvas2D
-          rendererRef.current = new Canvas2DRenderer(canvasRef.current, totalParticles);
-          setIs2DFallback(true);
-          toast({
-            title: "Using Canvas 2D",
-            description: "WebGL is not available. Using fallback renderer with reduced performance.",
-            variant: "default",
-          });
-        } catch (canvas2dError) {
-          console.error("Canvas2D initialization failed:", canvas2dError);
-          throw new Error("Both WebGL and Canvas2D failed to initialize");
-        }
-      }
+      rendererRef.current = new Canvas2DRenderer(canvasRef.current, totalParticles);
 
       // Animation loop
       let animationFrame: number;

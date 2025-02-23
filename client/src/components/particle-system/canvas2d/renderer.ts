@@ -10,14 +10,8 @@ export class Canvas2DRenderer {
   constructor(canvas: HTMLCanvasElement, particleCount: number) {
     console.log("Initializing Canvas2D renderer with", particleCount, "particles");
 
-    // Get the 2D context with explicit error handling
-    const ctx = canvas.getContext('2d', {
-      alpha: false,
-      desynchronized: true
-    });
-
+    const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.error("Failed to get 2D context");
       throw new Error('Canvas 2D context not supported');
     }
 
@@ -46,7 +40,6 @@ export class Canvas2DRenderer {
   }
 
   public resize(width: number, height: number): void {
-    console.log("Resizing canvas to", width, "x", height);
     this.ctx.canvas.width = width;
     this.ctx.canvas.height = height;
   }
@@ -54,14 +47,14 @@ export class Canvas2DRenderer {
   public render(repulsionForce: number = 50): void {
     const currentTime = (performance.now() - this.startTime) / 1000;
 
-    // Clear canvas with slight fade effect
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    // Clear canvas with fade effect
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     this.ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
 
     // Update and draw particles
     this.ctx.globalCompositeOperation = 'lighter';
 
-    this.particles.forEach((particle, index) => {
+    this.particles.forEach(particle => {
       // Update particle
       particle.update(
         this.mouseX,
@@ -73,18 +66,12 @@ export class Canvas2DRenderer {
       );
 
       // Draw particle with glow effect
-      const radius = 2;
-      const glowRadius = 4;
-
-      // Draw the main particle
-      this.ctx.beginPath();
-      this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
-      this.ctx.fillStyle = particle.color;
-      this.ctx.fill();
+      const radius = 3;
+      const glowRadius = 6;
 
       // Draw the glow effect
       const gradient = this.ctx.createRadialGradient(
-        particle.x, particle.y, radius,
+        particle.x, particle.y, 0,
         particle.x, particle.y, glowRadius
       );
       gradient.addColorStop(0, particle.color);
@@ -93,6 +80,12 @@ export class Canvas2DRenderer {
       this.ctx.beginPath();
       this.ctx.arc(particle.x, particle.y, glowRadius, 0, Math.PI * 2);
       this.ctx.fillStyle = gradient;
+      this.ctx.fill();
+
+      // Draw the main particle
+      this.ctx.beginPath();
+      this.ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = particle.color;
       this.ctx.fill();
     });
 

@@ -16,20 +16,56 @@ export class WebGLRenderer {
   private currentBuffer: number = 0;
 
   constructor(canvas: HTMLCanvasElement, particleCount: number) {
+    // Try to get WebGL2 context
     const gl = canvas.getContext('webgl2');
-    if (!gl) throw new Error('WebGL2 not supported');
+
+    // Check if WebGL2 is supported
+    if (!gl) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('WebGL2 is not supported in your browser.', canvas.width / 2, canvas.height / 2);
+      }
+      throw new Error('WebGL2 not supported');
+    }
+
+    // Check if required features are supported
+    const transformFeedback = gl.getExtension('EXT_transform_feedback');
+    if (!transformFeedback) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Required WebGL features are not supported.', canvas.width / 2, canvas.height / 2);
+      }
+      throw new Error('Required WebGL features not supported');
+    }
 
     this.gl = gl;
     this.particleCount = particleCount;
     this.startTime = performance.now();
 
     // Create shader programs
-    this.program = this.createShaderProgram(vertexShaderSource, fragmentShaderSource);
-    this.computeProgram = this.createShaderProgram(
-      computeVertexShaderSource,
-      computeFragmentShaderSource,
-      ['v_position']
-    );
+    try {
+      this.program = this.createShaderProgram(vertexShaderSource, fragmentShaderSource);
+      this.computeProgram = this.createShaderProgram(
+        computeVertexShaderSource,
+        computeFragmentShaderSource,
+        ['v_position']
+      );
+    } catch (error) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Failed to initialize shaders: ' + error.message, canvas.width / 2, canvas.height / 2);
+      }
+      throw error;
+    }
 
     // Initialize buffers
     this.positionBuffers = [

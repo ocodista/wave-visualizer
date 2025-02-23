@@ -12,9 +12,9 @@ export class Particle {
     this.y = y;
     this.homeX = x;
     this.homeY = y;
-    // Generate a random hue for HSL color
+    // Generate a vibrant color with high saturation
     const hue = Math.random() * 360;
-    this.color = `hsl(${hue}, 80%, 70%)`;
+    this.color = `hsla(${hue}, 100%, 70%, 0.8)`;
   }
 
   update(
@@ -32,40 +32,26 @@ export class Particle {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Wave propagation parameters
-    const waveSpeed = 3;
+    const waveSpeed = 2;
     const waveRadius = time * waveSpeed;
-    const waveWidth = 40;
+    const waveWidth = 100; // Wider wave effect for better visibility
 
     // Apply wave force
     if (Math.abs(distance - waveRadius) < waveWidth) {
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
       const timeDecay = Math.exp(-time * (time < 10 ? 0.01 : 0.003));
-      const distanceDecay = Math.exp(-distance * 0.001);
+      const distanceDecay = Math.exp(-distance * 0.0005); // Reduced decay for longer-range effect
       const initialBoost = time < 5 ? 2.0 : 1.0;
-      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02 * initialBoost;
+      const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.15 * initialBoost;
 
       const angle = Math.atan2(dy, dx);
       this.vx += Math.cos(angle) * waveForce;
       this.vy += Math.sin(angle) * waveForce;
     }
 
-    // Apply magnetic forces from attractive particles
-    let totalMagneticForceX = 0;
-    let totalMagneticForceY = 0;
-
-    attractiveParticles.forEach(particle => {
-      const [forceX, forceY] = particle.getAttractionForce(this.x, this.y);
-      totalMagneticForceX += forceX;
-      totalMagneticForceY += forceY;
-    });
-
-    // Apply magnetic forces with strong initial influence
-    this.vx += totalMagneticForceX * 1.2; // Increased magnetic influence
-    this.vy += totalMagneticForceY * 1.2;
-
-    // Apply spring force to return to home position with weaker effect when under magnetic influence
-    const springStrength = attractiveParticles.length > 0 ? 0.01 : 0.025; // Even weaker spring when magnetic field present
+    // Apply spring force to return to home position
+    const springStrength = 0.015; // Reduced for more dynamic movement
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
 
@@ -73,7 +59,7 @@ export class Particle {
     this.vy += homeForceY;
 
     // Apply damping for smooth movement
-    const damping = 0.96;
+    const damping = 0.98; // Increased for smoother motion
     this.vx *= damping;
     this.vy *= damping;
 

@@ -40,7 +40,7 @@ export const computeVertexShaderSource = `#version 300 es
     float dist = length(diff);
 
     // Convert 10px radius to clip space coordinates
-    float radiusInClipSpace = (u_magnetic_radius / u_resolution.x) * 2.0;
+    float radiusInClipSpace = (10.0 / u_resolution.x) * 2.0;
 
     if (dist > radiusInClipSpace) {
       return vec2(0.0);
@@ -63,20 +63,23 @@ export const computeVertexShaderSource = `#version 300 es
     // Apply magnetic forces
     for (int i = 0; i < 10; i++) {
       if (float(i) >= u_magnetic_count) break;
-      velocity += calculateMagneticForce(position, u_magnetic_positions[i]);
+
+      vec2 force = calculateMagneticForce(position, u_magnetic_positions[i]);
+      velocity += force * 0.0016; // Scaled down time step for stability
     }
 
     // Apply velocity with damping
-    position += velocity * 0.016; // Assuming 60fps (1/60 ≈ 0.016)
+    position += velocity;
+    velocity *= 0.96; // Damping
 
     // Boundary reflection
     if (abs(position.x) > 1.0) {
       position.x = sign(position.x) * 1.0;
-      velocity.x *= -0.8; // Bounce with energy loss
+      velocity.x *= -0.6; // Energy loss on bounce
     }
     if (abs(position.y) > 1.0) {
       position.y = sign(position.y) * 1.0;
-      velocity.y *= -0.8;
+      velocity.y *= -0.6;
     }
 
     v_position = position;  // Output for transform feedback

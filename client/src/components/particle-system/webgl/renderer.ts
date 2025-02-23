@@ -59,7 +59,10 @@ export class WebGLRenderer {
     }
 
     // Create shader programs
+    console.log('Creating render program...');
     this.program = this.createProgram(vertexShaderSource, fragmentShaderSource);
+
+    console.log('Creating compute program with transform feedback...');
     this.computeProgram = this.createProgram(
       computeVertexShaderSource,
       computeFragmentShaderSource,
@@ -99,6 +102,7 @@ export class WebGLRenderer {
 
     // Setup transform feedback if needed
     if (transformFeedbackVaryings) {
+      console.log(`Setting up transform feedback varyings: ${transformFeedbackVaryings}`);
       this.gl.transformFeedbackVaryings(program, transformFeedbackVaryings, this.gl.SEPARATE_ATTRIBS);
     }
 
@@ -117,7 +121,7 @@ export class WebGLRenderer {
     // Initialize both position buffers
     this.positionBuffers.forEach((buffer) => {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particlePositions, this.gl.DYNAMIC_DRAW);
+      this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particlePositions, this.gl.DYNAMIC_COPY);
     });
 
     // Color buffer
@@ -154,7 +158,7 @@ export class WebGLRenderer {
     this.gl.clearColor(0, 0, 0, 1);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-    // Use compute program to update particle positions
+    // First pass: Compute new positions using transform feedback
     this.gl.useProgram(this.computeProgram);
 
     // Set uniforms for compute shader
@@ -167,43 +171,44 @@ export class WebGLRenderer {
     const magneticCountLocation = this.gl.getUniformLocation(this.computeProgram, "u_magnetic_count");
     this.gl.uniform1f(magneticCountLocation, this.magneticCount);
 
-    const magneticRadiusLocation = this.gl.getUniformLocation(this.computeProgram, "u_magnetic_radius");
-    this.gl.uniform1f(magneticRadiusLocation, 10.0); // 10px radius
-
     const timeLocation = this.gl.getUniformLocation(this.computeProgram, "u_time");
-    this.gl.uniform1f(timeLocation, currentTime * 0.001); // Convert to seconds
+    this.gl.uniform1f(timeLocation, currentTime * 0.001);
 
-    // Perform transform feedback to update positions
+    // Bind input position buffer
+    const computePosLocation = this.gl.getAttribLocation(this.computeProgram, 'a_position');
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffers[this.currentBuffer]);
-    const posLocation = this.gl.getAttribLocation(this.computeProgram, 'a_position');
-    this.gl.enableVertexAttribArray(posLocation);
-    this.gl.vertexAttribPointer(posLocation, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.enableVertexAttribArray(computePosLocation);
+    this.gl.vertexAttribPointer(computePosLocation, 2, this.gl.FLOAT, false, 0, 0);
 
     // Set up transform feedback
     this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, this.transformFeedback);
-    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, this.positionBuffers[1 - this.currentBuffer]);
+    this.gl.bindBufferBase(
+      this.gl.TRANSFORM_FEEDBACK_BUFFER,
+      0,
+      this.positionBuffers[1 - this.currentBuffer]
+    );
+
+    // Perform transform feedback
+    this.gl.enable(this.gl.RASTERIZER_DISCARD);
     this.gl.beginTransformFeedback(this.gl.POINTS);
-
-    // Draw points (this updates the positions)
     this.gl.drawArrays(this.gl.POINTS, 0, this.particleCount);
-
-    // End transform feedback
     this.gl.endTransformFeedback();
+    this.gl.disable(this.gl.RASTERIZER_DISCARD);
+
+    // Cleanup transform feedback
     this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, null);
     this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
 
-    // Swap buffers
-    this.currentBuffer = 1 - this.currentBuffer;
-
-    // Switch to render program and draw particles
+    // Second pass: Render updated particles
     this.gl.useProgram(this.program);
 
-    // Update attribute bindings for rendering
+    // Bind the new position buffer (output from transform feedback)
     const renderPosLocation = this.gl.getAttribLocation(this.program, 'a_position');
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffers[this.currentBuffer]);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffers[1 - this.currentBuffer]);
     this.gl.enableVertexAttribArray(renderPosLocation);
     this.gl.vertexAttribPointer(renderPosLocation, 2, this.gl.FLOAT, false, 0, 0);
 
+    // Bind color buffer
     const renderColorLocation = this.gl.getAttribLocation(this.program, 'a_color');
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
     this.gl.enableVertexAttribArray(renderColorLocation);
@@ -211,6 +216,9 @@ export class WebGLRenderer {
 
     // Draw the particles
     this.gl.drawArrays(this.gl.POINTS, 0, this.particleCount);
+
+    // Swap buffers for next frame
+    this.currentBuffer = 1 - this.currentBuffer;
   }
 
   private hslToRgb(h: number, s: number, l: number): [number, number, number] {

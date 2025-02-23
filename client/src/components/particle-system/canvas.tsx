@@ -133,26 +133,8 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         return source.time < 100; // Reduced from 200 to 100 for better performance
       });
 
-
-      // Pre-calculate gradients for better performance
-      const gradients = particlesRef.current.map(thread => {
-        if (thread.length >= 2) {
-          const gradient = ctx.createLinearGradient(
-            thread[0].x,
-            thread[0].y,
-            thread[thread.length - 1].x,
-            thread[thread.length - 1].y
-          );
-          thread.forEach((particle, i) => {
-            gradient.addColorStop(i / (thread.length - 1), particle.color);
-          });
-          return gradient;
-        }
-        return null;
-      });
-
       // Update and draw threads
-      particlesRef.current.forEach((thread, threadIndex) => {
+      particlesRef.current.forEach((thread) => {
         // Update particles
         thread.forEach(particle => {
           waveSourcesRef.current.forEach(source => {
@@ -167,23 +149,34 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
           });
         });
 
-        // Draw thread lines
-        if (thread.length >= 2 && gradients[threadIndex]) {
-          ctx.strokeStyle = gradients[threadIndex]!;
+        // Draw thread lines with interpolated colors
+        if (thread.length >= 2) {
           ctx.beginPath();
           thread.forEach((particle, i) => {
             if (i === 0) {
               ctx.moveTo(particle.x, particle.y);
             } else {
+              // Create line segments with interpolated colors
+              const prevParticle = thread[i - 1];
+              const gradient = ctx.createLinearGradient(
+                prevParticle.x, prevParticle.y,
+                particle.x, particle.y
+              );
+              gradient.addColorStop(0, prevParticle.color);
+              gradient.addColorStop(1, particle.color);
+
               ctx.lineTo(particle.x, particle.y);
+              ctx.strokeStyle = gradient;
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(particle.x, particle.y);
             }
           });
-          ctx.stroke();
         }
 
-        // Draw particles
-        ctx.fillStyle = thread[0].color;
+        // Draw particles with their individual colors
         thread.forEach(particle => {
+          ctx.fillStyle = particle.color;
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
           ctx.fill();

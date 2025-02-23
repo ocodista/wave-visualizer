@@ -16,23 +16,16 @@ export class WebGLRenderer {
   private currentBuffer: number = 0;
 
   constructor(canvas: HTMLCanvasElement, particleCount: number) {
-    const gl = canvas.getContext('webgl2', {
-      antialias: true,
-      alpha: true,
-      premultipliedAlpha: false
-    });
-
-    if (!gl) {
-      throw new Error('WebGL2 not supported');
-    }
+    const gl = canvas.getContext('webgl2');
+    if (!gl) throw new Error('WebGL2 not supported');
 
     this.gl = gl;
     this.particleCount = particleCount;
     this.startTime = performance.now();
 
     // Create shader programs
-    this.program = this.createProgram(vertexShaderSource, fragmentShaderSource);
-    this.computeProgram = this.createProgram(
+    this.program = this.createShaderProgram(vertexShaderSource, fragmentShaderSource);
+    this.computeProgram = this.createShaderProgram(
       computeVertexShaderSource,
       computeFragmentShaderSource,
       ['v_position']
@@ -58,9 +51,9 @@ export class WebGLRenderer {
       this.particlePositions[i * 2] = x;
       this.particlePositions[i * 2 + 1] = y;
 
-      // Random colors with a cohesive palette
+      // Generate vibrant colors
       const hue = (i / particleCount) * 360;
-      const [r, g, b] = this.hslToRgb(hue / 360, 0.8, 0.7);
+      const [r, g, b] = this.hslToRgb(hue / 360, 1.0, 0.8);
       this.particleColors[i * 3] = r;
       this.particleColors[i * 3 + 1] = g;
       this.particleColors[i * 3 + 2] = b;
@@ -68,9 +61,9 @@ export class WebGLRenderer {
 
     this.setupBuffers();
 
-    // Enable alpha blending (original line remains, but blendFunc is updated below)
+    // Enable blending
     this.gl.enable(this.gl.BLEND);
-    
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
   }
 
   private createShader(type: number, source: string): WebGLShader {
@@ -79,13 +72,13 @@ export class WebGLRenderer {
     this.gl.compileShader(shader);
 
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      throw new Error(`Shader compile error: ${this.gl.getShaderInfoLog(shader)}`);
+      throw new Error(`Shader compilation failed: ${this.gl.getShaderInfoLog(shader)}`);
     }
 
     return shader;
   }
 
-  private createProgram(vertexSource: string, fragmentSource: string, transformFeedbackVaryings?: string[]): WebGLProgram {
+  private createShaderProgram(vertexSource: string, fragmentSource: string, transformFeedbackVaryings?: string[]): WebGLProgram {
     const program = this.gl.createProgram()!;
     const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexSource);
     const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentSource);
@@ -100,33 +93,23 @@ export class WebGLRenderer {
     this.gl.linkProgram(program);
 
     if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-      throw new Error(`Program link error: ${this.gl.getProgramInfoLog(program)}`);
+      throw new Error(`Program linking failed: ${this.gl.getProgramInfoLog(program)}`);
     }
+
+    this.gl.deleteShader(vertexShader);
+    this.gl.deleteShader(fragmentShader);
 
     return program;
   }
 
   private setupBuffers(): void {
-    // Initialize position buffers
     this.positionBuffers.forEach(buffer => {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
       this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particlePositions, this.gl.DYNAMIC_COPY);
     });
 
-    // Initialize color buffer with more vibrant colors
-    for (let i = 0; i < this.particleCount; i++) {
-      const hue = (i / this.particleCount) * 360;
-      const [r, g, b] = this.hslToRgb(hue / 360, 1.0, 0.7); // Increased saturation
-      this.particleColors[i * 3] = r;
-      this.particleColors[i * 3 + 1] = g;
-      this.particleColors[i * 3 + 2] = b;
-    }
-
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, this.particleColors, this.gl.STATIC_DRAW);
-
-    // Enable additive blending for more vibrant particles
-    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
   }
 
   public setMousePosition(x: number, y: number): void {
@@ -151,17 +134,19 @@ export class WebGLRenderer {
     this.gl.useProgram(this.computeProgram);
 
     // Set uniforms
-    const timeLocation = this.gl.getUniformLocation(this.computeProgram, "u_time");
-    const mouseLocation = this.gl.getUniformLocation(this.computeProgram, "u_mouse");
-    const resolutionLocation = this.gl.getUniformLocation(this.computeProgram, "u_resolution");
-    const repulsionLocation = this.gl.getUniformLocation(this.computeProgram, "u_repulsionForce");
+    const uniforms = {
+      u_time: this.gl.getUniformLocation(this.computeProgram, "u_time"),
+      u_mouse: this.gl.getUniformLocation(this.computeProgram, "u_mouse"),
+      u_resolution: this.gl.getUniformLocation(this.computeProgram, "u_resolution"),
+      u_repulsionForce: this.gl.getUniformLocation(this.computeProgram, "u_repulsionForce"),
+    };
 
-    this.gl.uniform1f(timeLocation, currentTime);
-    this.gl.uniform2f(mouseLocation, this.mouseX, this.mouseY);
-    this.gl.uniform2f(resolutionLocation, this.gl.canvas.width, this.gl.canvas.height);
-    this.gl.uniform1f(repulsionLocation, repulsionForce);
+    this.gl.uniform1f(uniforms.u_time, currentTime);
+    this.gl.uniform2f(uniforms.u_mouse, this.mouseX, this.mouseY);
+    this.gl.uniform2f(uniforms.u_resolution, this.gl.canvas.width, this.gl.canvas.height);
+    this.gl.uniform1f(uniforms.u_repulsionForce, repulsionForce);
 
-    // Set up transform feedback
+    // Transform feedback setup
     const positionLocation = this.gl.getAttribLocation(this.computeProgram, "a_position");
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffers[this.currentBuffer]);
     this.gl.enableVertexAttribArray(positionLocation);
@@ -174,6 +159,7 @@ export class WebGLRenderer {
       this.positionBuffers[1 - this.currentBuffer]
     );
 
+    // Compute new positions
     this.gl.enable(this.gl.RASTERIZER_DISCARD);
     this.gl.beginTransformFeedback(this.gl.POINTS);
     this.gl.drawArrays(this.gl.POINTS, 0, this.particleCount);
@@ -183,17 +169,23 @@ export class WebGLRenderer {
     // Render pass
     this.gl.useProgram(this.program);
 
-    const renderPosLocation = this.gl.getAttribLocation(this.program, "a_position");
-    const colorLocation = this.gl.getAttribLocation(this.program, "a_color");
+    // Bind position and color attributes
+    const renderAttribs = {
+      position: this.gl.getAttribLocation(this.program, "a_position"),
+      color: this.gl.getAttribLocation(this.program, "a_color"),
+    };
 
+    // Updated positions
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffers[1 - this.currentBuffer]);
-    this.gl.enableVertexAttribArray(renderPosLocation);
-    this.gl.vertexAttribPointer(renderPosLocation, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.enableVertexAttribArray(renderAttribs.position);
+    this.gl.vertexAttribPointer(renderAttribs.position, 2, this.gl.FLOAT, false, 0, 0);
 
+    // Colors
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
-    this.gl.enableVertexAttribArray(colorLocation);
-    this.gl.vertexAttribPointer(colorLocation, 3, this.gl.FLOAT, false, 0, 0);
+    this.gl.enableVertexAttribArray(renderAttribs.color);
+    this.gl.vertexAttribPointer(renderAttribs.color, 3, this.gl.FLOAT, false, 0, 0);
 
+    // Draw particles
     this.gl.drawArrays(this.gl.POINTS, 0, this.particleCount);
 
     // Swap buffers
@@ -201,7 +193,6 @@ export class WebGLRenderer {
   }
 
   public destroy(): void {
-    // Cleanup WebGL resources
     this.gl.deleteProgram(this.program);
     this.gl.deleteProgram(this.computeProgram);
     this.positionBuffers.forEach(buffer => this.gl.deleteBuffer(buffer));

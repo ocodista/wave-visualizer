@@ -6,7 +6,7 @@ export const vertexShaderSource = `#version 300 es
 
   void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
-    gl_PointSize = 6.0; // Increased point size for better visibility
+    gl_PointSize = 8.0; // Increased point size for better visibility
     v_color = a_color;
   }
 `;
@@ -20,7 +20,7 @@ export const fragmentShaderSource = `#version 300 es
     vec2 coord = gl_PointCoord - vec2(0.5);
     float r = length(coord) * 2.0;
     float alpha = 1.0 - smoothstep(0.8, 1.0, r);
-    fragColor = vec4(v_color, alpha); // Full opacity
+    fragColor = vec4(v_color, alpha * 0.8); // Slightly transparent for better blending
   }
 `;
 
@@ -44,9 +44,9 @@ export const computeVertexShaderSource = `#version 300 es
     float dist = length(toMouse);
 
     // Wave propagation parameters
-    float waveSpeed = 3.0;
+    float waveSpeed = 2.0;
     float waveRadius = u_time * waveSpeed;
-    float waveWidth = 0.2; // Adjusted for clip space
+    float waveWidth = 0.3; // Wider wave effect
 
     // Apply wave force
     if (abs(dist - waveRadius) < waveWidth) {
@@ -55,19 +55,19 @@ export const computeVertexShaderSource = `#version 300 es
       float timeDecay = exp(-u_time * (u_time < 10.0 ? 0.01 : 0.003));
       float distanceDecay = exp(-dist * 0.5);
       float initialBoost = u_time < 5.0 ? 2.0 : 1.0;
-      float waveForce = waveIntensity * timeDecay * distanceDecay * u_repulsionForce * 0.002 * initialBoost; // Increased force multiplier
+      float waveForce = waveIntensity * timeDecay * distanceDecay * u_repulsionForce * 0.004 * initialBoost;
 
       vec2 waveDir = normalize(toMouse);
       velocity += waveDir * waveForce;
     }
 
-    // Add slight attraction to original position to prevent particles from drifting
-    vec2 homeForce = -position * 0.01;
+    // Add slight attraction to original position
+    vec2 homeForce = -position * 0.02;
     velocity += homeForce;
 
     // Apply velocity with damping
     position += velocity;
-    position *= 0.999; // Slight damping to prevent eternal oscillation
+    position *= 0.999;
 
     // Boundary reflection
     if (abs(position.x) > 1.0) {

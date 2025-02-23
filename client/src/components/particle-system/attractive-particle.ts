@@ -77,4 +77,18 @@ export class AttractiveParticle {
 
     return [forceX, forceY];
   }
+
+  drawField(ctx: CanvasRenderingContext2D) {
+    const gradient = ctx.createRadialGradient(
+      this.x, this.y, 0,
+      this.x, this.y, this.fieldRadius
+    );
+    gradient.addColorStop(0, 'rgba(192, 192, 192, 0.2)');
+    gradient.addColorStop(1, 'rgba(192, 192, 192, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.fieldRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }

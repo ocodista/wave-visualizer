@@ -6,7 +6,6 @@ interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
-  waveDuration: number;
 }
 
 interface ControlsProps {
@@ -60,22 +59,6 @@ export default function Controls({ config, onChange }: ControlsProps) {
             min={20}
             max={100}
             step={5}
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-white">
-            Wave Duration: {config.waveDuration}s
-          </Label>
-          <Slider
-            value={[config.waveDuration]}
-            onValueChange={([value]) =>
-              onChange({ ...config, waveDuration: value })
-            }
-            min={1}
-            max={10}
-            step={0.5}
             className="w-full"
           />
         </div>

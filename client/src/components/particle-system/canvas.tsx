@@ -1,12 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Particle } from "./particle";
-import { Button } from "@/components/ui/button";
 
 interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
-  waveDuration: number;
 }
 
 interface ParticleCanvasProps {
@@ -128,13 +126,10 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Calculate max frames based on duration in seconds (assuming 60fps)
-      const maxFrames = config.waveDuration * 60;
-
-      // Filter wave sources based on the configured duration
+      // Filter wave sources with a longer lifetime and smoother fade
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
         source.time += 1;
-        return source.time < maxFrames;
+        return source.time < 300; // Increased from 100 to 300 frames (5 seconds)
       });
 
       // Update and draw threads
@@ -193,7 +188,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     animate();
 
     return () => cancelAnimationFrame(frameRef.current);
-  }, [config.repulsionForce, config.waveDuration]);
+  }, [config.repulsionForce]);
 
   return (
     <canvas ref={canvasRef} className="w-full h-full select-none" />

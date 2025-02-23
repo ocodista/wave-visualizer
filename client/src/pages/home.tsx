@@ -7,7 +7,6 @@ export default function Home() {
     threadCount: 20,
     particlesPerThread: 50,
     repulsionForce: 50,
-    waveDuration: 3, // 3 seconds default
   });
 
   return (

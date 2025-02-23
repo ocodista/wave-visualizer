@@ -38,7 +38,7 @@ export class Particle {
     if (Math.abs(distance - waveRadius) < waveWidth) {
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
-      const timeDecay = Math.exp(-time * 0.02);
+      const timeDecay = Math.exp(-time * 0.02); // Slower decay rate (was 0.05)
       const distanceDecay = Math.exp(-distance * 0.001);
       const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02;
 

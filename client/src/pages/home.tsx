@@ -6,7 +6,8 @@ export default function Home() {
   const [config, setConfig] = useState({
     threadCount: 20,
     particlesPerThread: 50,
-    repulsionForce: 50,  // Reduced from 100 to match new range
+    repulsionForce: 50,
+    waveDuration: 3, // 3 seconds default
   });
 
   return (

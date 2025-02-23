@@ -43,10 +43,15 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     window.addEventListener("resize", resize);
 
     const addWaveSource = (clientX: number, clientY: number) => {
+      if (!canvas) return;
+
       const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
       waveSourcesRef.current.push({
-        x: clientX - rect.left,
-        y: clientY - rect.top,
+        x,
+        y,
         time: 0,
       });
 
@@ -54,7 +59,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         const color = `hsl(${Math.random() * 360}, 80%, 70%)`;
         for (let i = 0; i < 5; i++) {
           smokeParticlesRef.current.push(
-            new SmokeParticle(clientX - rect.left, clientY - rect.top, color)
+            new SmokeParticle(x, y, color)
           );
         }
       }
@@ -86,6 +91,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     };
 
     const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
       Array.from(e.touches).forEach(touch => {
         handleStart(touch.clientX, touch.clientY);
       });
@@ -101,9 +107,11 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     return () => {
       window.removeEventListener("resize", resize);
+      canvas.removeEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseup", handleEnd);
       canvas.removeEventListener("mouseleave", handleEnd);
+      canvas.removeEventListener("touchstart", handleTouchStart);
       canvas.removeEventListener("touchmove", handleTouchMove);
       canvas.removeEventListener("touchend", handleEnd);
       cancelAnimationFrame(frameRef.current);
@@ -134,8 +142,9 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     }
 
     particlesRef.current = threads;
-    smokeParticlesRef.current = []; 
-    attractiveParticlesRef.current = []; 
+    smokeParticlesRef.current = [];
+    attractiveParticlesRef.current = [];
+    waveSourcesRef.current = [];
   }, [config.threadCount, config.particlesPerThread, config.mode]);
 
   useEffect(() => {
@@ -148,7 +157,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const currentTime = performance.now();
-      if (currentTime - lastAttractiveParticleTimeRef.current > 2000) { 
+      if (currentTime - lastAttractiveParticleTimeRef.current > 2000) {
         attractiveParticlesRef.current.push(new AttractiveParticle(canvas.width, canvas.height));
         lastAttractiveParticleTimeRef.current = currentTime;
       }
@@ -192,17 +201,30 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
         particlesRef.current.forEach((thread) => {
           thread.forEach(particle => {
-            waveSourcesRef.current.forEach(source => {
+            if (waveSourcesRef.current.length > 0) {
+              waveSourcesRef.current.forEach(source => {
+                particle.update(
+                  source.x,
+                  source.y,
+                  isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
+                  source.time,
+                  canvas.width,
+                  canvas.height,
+                  allParticles
+                );
+              });
+            } else {
+              // Update with default values when no wave sources
               particle.update(
-                source.x,
-                source.y,
-                isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
-                source.time,
+                particle.x,
+                particle.y,
+                config.repulsionForce,
+                0,
                 canvas.width,
                 canvas.height,
-                allParticles 
+                allParticles
               );
-            });
+            }
 
             attractiveParticlesRef.current.forEach(attractor => {
               const [forceX, forceY] = attractor.getAttractionForce(particle.x, particle.y);

@@ -1,0 +1,31 @@
+Caio, here’s a breakdown of the functional aspects of Quantum Event Horizon:
+
+1. Dynamic Simulation Display
+• The core experience is an ever-changing, visually engaging simulation of a black hole’s event horizon.
+• Users see real-time changes—like the warping of space-time, shifting distortions, and layers representing quantum fluctuations—as they explore different states of the black hole.
+
+2. Parameter Controls
+• A set of interactive controls lets users adjust key parameters such as mass, spin, and charge.
+• Each parameter tweak immediately affects the simulation, altering the visual distortions and overall behavior of the black hole.
+
+3. Real-Time Feedback Loop
+• Changes in the parameters instantly update the simulation, ensuring users see immediate, intuitive responses to their interactions.
+• This direct feedback enhances the exploratory and experimental nature of the app.
+
+4. Generative Audio Experience
+• The app produces ambient, evolving soundscapes that are linked to the simulation parameters.
+• As users modify mass, spin, or charge, the audio shifts—reflecting phenomena like the subtle “pulses” of Hawking radiation or the deep hum of gravitational waves.
+
+5. Immersive, Multi-Sensory Experience
+• The combination of dynamic visuals and synchronized audio creates an immersive atmosphere, merging scientific concepts with an artistic touch.
+• Users not only “see” the effects of quantum physics and gravity but also “feel” them through sound.
+
+6. Optional Data-Driven Insights
+• Optionally, the app can integrate real astronomical data to influence initial conditions or provide context, enhancing the simulation’s authenticity.
+• This data could offer insights or trigger specific visual/audio events, bridging artistic representation with actual cosmic phenomena.
+
+7. Educational and Exploratory Component
+• Beyond the visual and auditory allure, the simulation encourages users to experiment and learn about black hole properties.
+• Supplementary labels or brief explanations can highlight how each parameter relates to real astrophysical phenomena, making the experience both enlightening and engaging.
+
+These functional elements come together to provide an interactive, educational, and artistically driven journey into the mysteries of quantum physics and black holes.

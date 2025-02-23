@@ -66,7 +66,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       mouseRef.current = { x: -1000, y: -1000 };
     };
 
-    // Add touch and mouse event listeners
     canvas.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", handleEnd);
@@ -84,11 +83,8 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseup", handleEnd);
       canvas.removeEventListener("mouseleave", handleEnd);
-
-      canvas.removeEventListener("touchstart", handleStart);
       canvas.removeEventListener("touchmove", handleTouchMove);
       canvas.removeEventListener("touchend", handleEnd);
-
       cancelAnimationFrame(frameRef.current);
     };
   }, []);
@@ -126,7 +122,9 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      timeRef.current += 1;
+      if (isDraggingRef.current) {
+        timeRef.current += 1;
+      }
 
       // Update and draw particles
       particlesRef.current.forEach(thread => {

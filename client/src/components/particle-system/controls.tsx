@@ -56,9 +56,9 @@ export default function Controls({ config, onChange }: ControlsProps) {
             onValueChange={([value]) =>
               onChange({ ...config, repulsionForce: value })
             }
-            min={50}
-            max={300}
-            step={10}
+            min={20}
+            max={150}
+            step={5}
             className="w-full"
           />
         </div>

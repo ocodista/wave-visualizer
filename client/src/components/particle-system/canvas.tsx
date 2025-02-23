@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Particle } from "./particle";
+import { AttractiveParticle } from "./attractive-particle";
+import { Button } from "@/components/ui/button";
 
 interface Config {
   threadCount: number;
@@ -21,8 +23,18 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
   const waveSourcesRef = useRef<WaveSource[]>([]);
+  const attractiveParticlesRef = useRef<AttractiveParticle[]>([]);
   const frameRef = useRef(0);
   const isDraggingRef = useRef(false);
+
+  const spawnAttractiveParticle = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    attractiveParticlesRef.current.push(
+      new AttractiveParticle(canvas.width, canvas.height)
+    );
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,7 +47,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    // Enhanced mouse/touch tracking
     const addWaveSource = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
       waveSourcesRef.current.push({
@@ -55,7 +66,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (isDraggingRef.current) {
-        // Handle all active touch points
         Array.from(e.touches).forEach(touch => {
           addWaveSource(touch.clientX, touch.clientY);
         });
@@ -71,7 +81,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       isDraggingRef.current = false;
     };
 
-    // Handle multiple touch points
     const handleTouchStart = (e: TouchEvent) => {
       Array.from(e.touches).forEach(touch => {
         handleStart(touch.clientX, touch.clientY);
@@ -98,7 +107,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     };
   }, []);
 
-  // Initialize particles when config changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -121,7 +129,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     particlesRef.current = threads;
   }, [config.threadCount, config.particlesPerThread]);
 
-  // Animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -131,15 +138,21 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Update wave sources and remove old ones
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
         source.time += 1;
-        return source.time < 200; // Remove sources after they've existed for a while
+        return source.time < 200;
       });
 
-      // Update and draw particles
+      attractiveParticlesRef.current = attractiveParticlesRef.current.filter(particle => {
+        return particle.update(canvas.width, canvas.height);
+      });
+
+      // Draw magnetic fields first (under the particles)
+      attractiveParticlesRef.current.forEach(particle => {
+        particle.drawField(ctx);
+      });
+
       particlesRef.current.forEach(thread => {
-        // Update particles with all active wave sources
         thread.forEach(particle => {
           waveSourcesRef.current.forEach(source => {
             particle.update(
@@ -148,12 +161,12 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
               isDraggingRef.current ? config.repulsionForce * 1.5 : config.repulsionForce,
               source.time,
               canvas.width,
-              canvas.height
+              canvas.height,
+              attractiveParticlesRef.current
             );
           });
         });
 
-        // Draw thread lines with gradient based on particle colors
         if (thread.length >= 2) {
           const gradient = ctx.createLinearGradient(
             thread[0].x,
@@ -178,13 +191,20 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
           ctx.stroke();
         }
 
-        // Draw particles with their individual colors
         thread.forEach(particle => {
           ctx.fillStyle = particle.color;
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
           ctx.fill();
         });
+      });
+
+      // Draw magnetic particles on top
+      attractiveParticlesRef.current.forEach(particle => {
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
       });
 
       frameRef.current = requestAnimationFrame(animate);
@@ -195,5 +215,15 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     return () => cancelAnimationFrame(frameRef.current);
   }, [config.repulsionForce]);
 
-  return <canvas ref={canvasRef} className="w-full h-full select-none" />;
+  return (
+    <>
+      <canvas ref={canvasRef} className="w-full h-full select-none" />
+      <Button
+        className="fixed top-4 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30"
+        onClick={spawnAttractiveParticle}
+      >
+        Spawn Magnetic Particle
+      </Button>
+    </>
+  );
 }

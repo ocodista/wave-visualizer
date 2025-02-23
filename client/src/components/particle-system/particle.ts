@@ -19,39 +19,55 @@ export class Particle {
     this.color = `hsl(${hue}, 80%, 70%)`;
   }
 
-  update(mouseX: number, mouseY: number, repulsionForce: number, time: number, canvasWidth: number, canvasHeight: number) {
-    // Calculate distance from touch point
+  update(
+    mouseX: number,
+    mouseY: number,
+    repulsionForce: number,
+    time: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    attractiveParticles: { x: number; y: number; getAttractionForce: (x: number, y: number) => [number, number] }[] = []
+  ) {
+    // Calculate wave force
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Wave propagation parameters
-    const waveSpeed = 3; // Slightly faster for more immediate feedback
-    const waveRadius = time * waveSpeed; // How far the wave has traveled
-    const waveWidth = 40; // Fixed width for more consistent ripples
+    const waveSpeed = 3;
+    const waveRadius = time * waveSpeed;
+    const waveWidth = 40;
 
-    // Only apply force if the wave has reached this particle
+    // Apply wave force
     if (Math.abs(distance - waveRadius) < waveWidth) {
-      // Calculate wave intensity with stronger initial pulse
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
-
-      // More aggressive initial time decay that softens over time
       const timeDecay = Math.exp(-time * (time < 10 ? 0.01 : 0.003));
       const distanceDecay = Math.exp(-distance * 0.001);
-
-      // Enhanced initial force for quick clicks
       const initialBoost = time < 5 ? 2.0 : 1.0;
       const waveForce = waveIntensity * timeDecay * distanceDecay * repulsionForce * 0.02 * initialBoost;
 
-      // Apply force in radial direction
       const angle = Math.atan2(dy, dx);
       this.vx += Math.cos(angle) * waveForce;
       this.vy += Math.sin(angle) * waveForce;
     }
 
-    // Apply spring force to return to home position
-    const springStrength = 0.025;
+    // Apply magnetic forces from attractive particles
+    let totalMagneticForceX = 0;
+    let totalMagneticForceY = 0;
+
+    attractiveParticles.forEach(particle => {
+      const [forceX, forceY] = particle.getAttractionForce(this.x, this.y);
+      totalMagneticForceX += forceX;
+      totalMagneticForceY += forceY;
+    });
+
+    // Apply magnetic forces with strong initial influence
+    this.vx += totalMagneticForceX * 1.2; // Increased magnetic influence
+    this.vy += totalMagneticForceY * 1.2;
+
+    // Apply spring force to return to home position with weaker effect when under magnetic influence
+    const springStrength = attractiveParticles.length > 0 ? 0.01 : 0.025; // Even weaker spring when magnetic field present
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
 

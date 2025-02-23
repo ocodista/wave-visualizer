@@ -1,5 +1,5 @@
 import ParticleCanvas from "@/components/particle-system/canvas";
-import Controls from "@/components/particle-system/controls";
+import Controls, { VisualizationMode } from "@/components/particle-system/controls";
 import { useState } from "react";
 
 export default function Home() {
@@ -7,6 +7,7 @@ export default function Home() {
     threadCount: 20,
     particlesPerThread: 50,
     repulsionForce: 50,
+    mode: "threads" as VisualizationMode,
   });
 
   return (

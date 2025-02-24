@@ -8,6 +8,7 @@ interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
+  vibration: number;
   mode: VisualizationMode;
 }
 
@@ -62,6 +63,22 @@ export default function Controls({ config, onChange }: ControlsProps) {
             min={20}
             max={100}
             step={5}
+            className="w-full"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">
+            Vibration: {config.vibration}
+          </Label>
+          <Slider
+            value={[config.vibration]}
+            onValueChange={([value]) =>
+              onChange({ ...config, vibration: value })
+            }
+            min={0}
+            max={10}
+            step={0.5}
             className="w-full"
           />
         </div>

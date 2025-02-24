@@ -7,6 +7,7 @@ export default function Home() {
     threadCount: 20,
     particlesPerThread: 50,
     repulsionForce: 50,
+    vibration: 0,
     mode: "default" as VisualizationMode,
   });
 

@@ -7,6 +7,7 @@ export class Particle {
   vy: number = 0;
   color: [number, number, number];
   size: number;
+  time: number = 0;
 
   constructor(x: number, y: number) {
     this.x = x;
@@ -41,7 +42,26 @@ export class Particle {
     this.size = 4;
   }
 
-  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
+  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number, vibration: number = 0, threadSpacing: number = 100) {
+    this.time += 0.05; // Increment internal time for vibration animation
+
+    // Apply vibration effect
+    if (vibration > 0) {
+      const vibrationAmplitude = (threadSpacing * 0.5) * (vibration / 10);
+
+      if (vibration <= 5) {
+        // Horizontal movement only
+        const horizontalOffset = Math.sin(this.time) * vibrationAmplitude * (vibration / 5);
+        this.x = this.homeX + horizontalOffset;
+      } else {
+        // Circular movement
+        const circleIntensity = (vibration - 5) / 5; // 0 to 1 for circular motion
+        const angle = this.time;
+        this.x = this.homeX + Math.cos(angle) * vibrationAmplitude * circleIntensity;
+        this.y = this.homeY + Math.sin(angle) * vibrationAmplitude * circleIntensity;
+      }
+    }
+
     // Calculate distance to wave source
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
@@ -64,25 +84,29 @@ export class Particle {
       const forceX = Math.cos(angle) * waveForce;
       const forceY = Math.sin(angle) * waveForce;
 
-      // Add clamped forces
-      this.vx += Math.min(Math.max(forceX, -10), 10);
-      this.vy += Math.min(Math.max(forceY, -10), 10);
+      // Add clamped forces only if not in full vibration mode
+      if (vibration < 8) {
+        this.vx += Math.min(Math.max(forceX, -10), 10);
+        this.vy += Math.min(Math.max(forceY, -10), 10);
+      }
     }
 
-    // Apply spring force to return to home position
-    const springStrength = 0.025;
-    const homeForceX = (this.homeX - this.x) * springStrength;
-    const homeForceY = (this.homeY - this.y) * springStrength;
-    this.vx += homeForceX;
-    this.vy += homeForceY;
+    // Apply spring force to return to home position only if vibration is low
+    if (vibration < 3) {
+      const springStrength = 0.025;
+      const homeForceX = (this.homeX - this.x) * springStrength;
+      const homeForceY = (this.homeY - this.y) * springStrength;
+      this.vx += homeForceX;
+      this.vy += homeForceY;
 
-    // Apply damping
-    this.vx *= 0.95;
-    this.vy *= 0.95;
+      // Apply damping
+      this.vx *= 0.95;
+      this.vy *= 0.95;
 
-    // Update position
-    this.x += this.vx;
-    this.y += this.vy;
+      // Update position
+      this.x += this.vx;
+      this.y += this.vy;
+    }
 
     // Boundary check
     this.x = Math.max(0, Math.min(this.x, canvasWidth));

@@ -8,6 +8,7 @@ interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
+  vibration: number;
   mode: VisualizationMode;
 }
 
@@ -28,6 +29,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
   const drawCallsRef = useRef(0);
+  const threadSpacingRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -115,7 +117,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
         source.time += 1;
-        return source.time < 300; 
+        return source.time < 300;
       });
 
       particles.forEach(particle => {
@@ -126,14 +128,16 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
             config.repulsionForce,
             source.time,
             canvas.width,
-            canvas.height
+            canvas.height,
+            config.vibration,
+            threadSpacingRef.current
           );
         });
 
         const data = particle.getBufferData();
-        positions.push(data[0], data[1]);       
-        colors.push(data[2], data[3], data[4]); 
-        sizes.push(data[5]);                    
+        positions.push(data[0], data[1]);
+        colors.push(data[2], data[3], data[4]);
+        sizes.push(data[5]);
       });
 
       gl.clearColor(0, 0, 0, 1);
@@ -190,7 +194,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.deleteBuffer(colorBuffer);
       gl.deleteBuffer(sizeBuffer);
     };
-  }, [config.repulsionForce]);
+  }, [config.repulsionForce, config.vibration]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -198,6 +202,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     const threads: Particle[][] = [];
     const spacing = canvas.width / (config.threadCount + 1);
+    threadSpacingRef.current = spacing;
 
     for (let i = 0; i < config.threadCount; i++) {
       const thread: Particle[] = [];
@@ -217,7 +222,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   return (
     <>
       <canvas ref={canvasRef} className="w-full h-full select-none" />
-      <PerformanceMonitor 
+      <PerformanceMonitor
         particleCount={particlesRef.current.flat().length}
         drawCalls={drawCallsRef.current}
       />

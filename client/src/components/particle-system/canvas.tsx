@@ -2,13 +2,13 @@ import { useEffect, useRef } from "react";
 import { Particle } from "./particle";
 import { createProgram, createShader, vertexShaderSource, fragmentShaderSource } from "./webgl-utils";
 import PerformanceMonitor from "./performance-monitor";
-import type { VisualizationMode } from "./controls";
+import type { VisualizationMode, ColorTheme } from "./controls";
 
 interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
-  vibration: number;
+  colorTheme: ColorTheme;
   mode: VisualizationMode;
 }
 
@@ -29,14 +29,10 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
   const drawCallsRef = useRef(0);
-  const threadSpacingRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.error('Canvas not found');
-      return;
-    }
+    if (!canvas) return;
 
     const gl = canvas.getContext('webgl', {
       alpha: false,
@@ -69,23 +65,9 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     const colorLocation = gl.getAttribLocation(program, "a_color");
     const sizeLocation = gl.getAttribLocation(program, "a_size");
 
-    if (positionLocation === -1 || colorLocation === -1 || sizeLocation === -1) {
-      console.error('Failed to get attribute locations', {
-        positionLocation,
-        colorLocation,
-        sizeLocation
-      });
-      return;
-    }
-
     const positionBuffer = gl.createBuffer();
     const colorBuffer = gl.createBuffer();
     const sizeBuffer = gl.createBuffer();
-
-    if (!positionBuffer || !colorBuffer || !sizeBuffer) {
-      console.error('Failed to create buffers');
-      return;
-    }
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -121,17 +103,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       });
 
       particles.forEach(particle => {
-        particle.update(
-          0, 
-          0, 
-          0, 
-          0, 
-          canvas.width,
-          canvas.height,
-          config.vibration,
-          threadSpacingRef.current
-        );
-
         waveSourcesRef.current.forEach(source => {
           particle.update(
             source.x,
@@ -139,9 +110,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
             config.repulsionForce,
             source.time,
             canvas.width,
-            canvas.height,
-            config.vibration,
-            threadSpacingRef.current
+            canvas.height
           );
         });
 
@@ -151,9 +120,13 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         sizes.push(data[5]);
       });
 
-      gl.clearColor(0, 0, 0, 1);
+      // Set background color based on theme
+      if (config.colorTheme === "black") {
+        gl.clearColor(1, 1, 1, 1); // White background
+      } else {
+        gl.clearColor(0, 0, 0, 1); // Black background
+      }
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.viewport(0, 0, canvas.width, canvas.height);
 
       gl.useProgram(program);
 
@@ -201,7 +174,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.deleteBuffer(colorBuffer);
       gl.deleteBuffer(sizeBuffer);
     };
-  }, [config.repulsionForce, config.vibration]);
+  }, [config.repulsionForce, config.colorTheme]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -209,7 +182,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     const threads: Particle[][] = [];
     const spacing = canvas.width / (config.threadCount + 1);
-    threadSpacingRef.current = spacing;
 
     for (let i = 0; i < config.threadCount; i++) {
       const thread: Particle[] = [];
@@ -217,14 +189,14 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
       for (let j = 0; j < config.particlesPerThread; j++) {
         const y = (canvas.height / (config.particlesPerThread - 1)) * j;
-        thread.push(new Particle(x, y));
+        thread.push(new Particle(x, y, config.colorTheme));
       }
 
       threads.push(thread);
     }
 
     particlesRef.current = threads;
-  }, [config.threadCount, config.particlesPerThread]);
+  }, [config.threadCount, config.particlesPerThread, config.colorTheme]);
 
   return (
     <>

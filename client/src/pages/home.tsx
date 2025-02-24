@@ -7,7 +7,7 @@ export default function Home() {
     threadCount: 20,
     particlesPerThread: 50,
     repulsionForce: 50,
-    vibration: 0,
+    colorTheme: "colored" as const,
     mode: "default" as VisualizationMode,
   });
 

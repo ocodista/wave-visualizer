@@ -1,14 +1,16 @@
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type VisualizationMode = "default";
+export type ColorTheme = "colored" | "white" | "black";
 
 interface Config {
   threadCount: number;
   particlesPerThread: number;
   repulsionForce: number;
-  vibration: number;
+  colorTheme: ColorTheme;
   mode: VisualizationMode;
 }
 
@@ -68,19 +70,22 @@ export default function Controls({ config, onChange }: ControlsProps) {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white">
-            Vibration: {config.vibration}
-          </Label>
-          <Slider
-            value={[config.vibration]}
-            onValueChange={([value]) =>
-              onChange({ ...config, vibration: value })
+          <Label className="text-white">Color Theme</Label>
+          <Select
+            value={config.colorTheme}
+            onValueChange={(value: ColorTheme) =>
+              onChange({ ...config, colorTheme: value })
             }
-            min={0}
-            max={10}
-            step={0.5}
-            className="w-full"
-          />
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select color theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="colored">Colored</SelectItem>
+              <SelectItem value="white">White on Black</SelectItem>
+              <SelectItem value="black">Black on White</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </Card>

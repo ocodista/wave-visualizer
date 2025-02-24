@@ -54,37 +54,46 @@ export class Particle {
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
-    // Wave parameters
-    const waveSpeed = 3;
+    // Improved wave parameters for more realistic water ripple effect
+    const waveSpeed = 5; // Faster wave propagation
     const waveRadius = time * waveSpeed;
-    const waveWidth = 40;
+    const waveWidth = 80; // Wider wave for smoother effect
 
     // Apply wave force if within range
     if (Math.abs(distance - waveRadius) < waveWidth) {
+      // Calculate wave intensity with smooth falloff
       const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
-      const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
-      const timeDecay = Math.exp(-time * 0.02);
-      const distanceDecay = Math.exp(-distance * 0.001);
-      const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.02;
+      const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI * 2);
 
+      // Time-based decay for natural wave dissipation
+      const timeDecay = Math.exp(-time * 0.015); // Slower decay for longer-lasting waves
+
+      // Distance-based attenuation
+      const distanceDecay = Math.exp(-distance * 0.002);
+
+      // Combined force with smooth transition
+      const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.015;
+
+      // Apply force in radial direction
       const angle = Math.atan2(dy, dx);
       const forceX = Math.cos(angle) * waveForce;
       const forceY = Math.sin(angle) * waveForce;
 
-      this.vx += Math.min(Math.max(forceX, -10), 10);
-      this.vy += Math.min(Math.max(forceY, -10), 10);
+      // Add forces with smooth clamping
+      this.vx += Math.min(Math.max(forceX, -5), 5);
+      this.vy += Math.min(Math.max(forceY, -5), 5);
     }
 
-    // Apply spring force to return to home position
-    const springStrength = 0.025;
+    // Apply spring force to return to home position with smoother transition
+    const springStrength = 0.02; // Gentler spring force
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
     this.vx += homeForceX;
     this.vy += homeForceY;
 
-    // Apply damping
-    this.vx *= 0.95;
-    this.vy *= 0.95;
+    // Apply damping for smoother motion
+    this.vx *= 0.96; // Slightly higher damping for smoother movement
+    this.vy *= 0.96;
 
     // Update position
     this.x += this.vx;

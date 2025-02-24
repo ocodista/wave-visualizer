@@ -76,7 +76,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    const handleMouseDown = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       waveSourcesRef.current.push({
         x: e.clientX - rect.left,
@@ -85,9 +85,9 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       });
     };
 
-    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousedown", handleClick);
     canvas.addEventListener("mousemove", (e) => {
-      if (e.buttons > 0) handleMouseDown(e);
+      if (e.buttons > 0) handleClick(e);
     });
 
 
@@ -98,8 +98,8 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       const sizes: number[] = [];
 
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
-        source.time += 1;
-        return source.time < 300;
+        source.time += 0.8; 
+        return source.time < 400; 
       });
 
       particles.forEach(particle => {
@@ -120,7 +120,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         sizes.push(data[5]);
       });
 
-      // Set background color based on theme
       if (config.colorTheme === "black") {
         gl.clearColor(1, 1, 1, 1);
       } else {
@@ -161,9 +160,9 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     return () => {
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousedown", handleClick);
       canvas.removeEventListener("mousemove", (e) => {
-        if (e.buttons > 0) handleMouseDown(e);
+        if (e.buttons > 0) handleClick(e);
       });
       cancelAnimationFrame(frameRef.current);
 

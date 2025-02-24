@@ -121,6 +121,17 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       });
 
       particles.forEach(particle => {
+        particle.update(
+          0, 
+          0, 
+          0, 
+          0, 
+          canvas.width,
+          canvas.height,
+          config.vibration,
+          threadSpacingRef.current
+        );
+
         waveSourcesRef.current.forEach(source => {
           particle.update(
             source.x,
@@ -147,10 +158,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.useProgram(program);
 
       const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-      if (!resolutionLocation) {
-        console.error('Failed to get uniform location: u_resolution');
-        return;
-      }
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);

@@ -7,7 +7,6 @@ export class Particle {
   vy: number = 0;
   color: [number, number, number];
   size: number;
-  isDragged: boolean = false;
 
   constructor(x: number, y: number, colorTheme: "colored" | "white" | "black" = "colored") {
     this.x = x;
@@ -49,7 +48,7 @@ export class Particle {
     this.size = 4;
   }
 
-  updateWaveMode(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
+  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
     // Calculate distance to wave source
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
@@ -76,51 +75,6 @@ export class Particle {
       this.vy += Math.min(Math.max(forceY, -10), 10);
     }
 
-    this.applySpringForce(canvasWidth, canvasHeight);
-  }
-
-  updateLineMode(mouseX: number, mouseY: number, force: number, neighbors: Particle[], canvasWidth: number, canvasHeight: number) {
-    if (this.isDragged) {
-      // Direct position update when dragged
-      this.x = mouseX;
-      this.y = mouseY;
-      this.vx = 0;
-      this.vy = 0;
-      return;
-    }
-
-    // Reset forces
-    this.vx = 0;
-    this.vy = 0;
-
-    // Apply forces from neighboring particles
-    neighbors.forEach(neighbor => {
-      const dx = this.x - neighbor.x;
-      const dy = this.y - neighbor.y;
-      const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
-
-      if (distance > 0 && distance < 150) {
-        const forceMagnitude = (distance - 50) * force * 0.0001;
-        const angle = Math.atan2(dy, dx);
-
-        // Add repulsion/attraction forces
-        this.vx += Math.cos(angle) * forceMagnitude;
-        this.vy += Math.sin(angle) * forceMagnitude;
-      }
-    });
-
-    // Add damping to movement
-    this.vx *= 0.95;
-    this.vy *= 0.95;
-
-    // Update position
-    this.x += this.vx;
-    this.y += this.vy;
-
-    this.applySpringForce(canvasWidth, canvasHeight);
-  }
-
-  private applySpringForce(canvasWidth: number, canvasHeight: number) {
     // Apply spring force to return to home position
     const springStrength = 0.025;
     const homeForceX = (this.homeX - this.x) * springStrength;
@@ -128,16 +82,17 @@ export class Particle {
     this.vx += homeForceX;
     this.vy += homeForceY;
 
+    // Apply damping
+    this.vx *= 0.95;
+    this.vy *= 0.95;
+
+    // Update position
+    this.x += this.vx;
+    this.y += this.vy;
+
     // Boundary check
     this.x = Math.max(0, Math.min(this.x, canvasWidth));
     this.y = Math.max(0, Math.min(this.y, canvasHeight));
-  }
-
-  checkDrag(mouseX: number, mouseY: number): boolean {
-    const dx = this.x - mouseX;
-    const dy = this.y - mouseY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < 20;
   }
 
   // Get data for WebGL buffers

@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-export type VisualizationMode = "waves" | "lines";
 export type ColorTheme = "colored" | "white" | "black";
 
 interface Config {
@@ -14,7 +13,6 @@ interface Config {
   particlesPerThread: number;
   repulsionForce: number;
   colorTheme: ColorTheme;
-  mode: VisualizationMode;
 }
 
 interface ControlsProps {
@@ -41,24 +39,6 @@ export default function Controls({ config, onChange }: ControlsProps) {
 
       {!isCollapsed && (
         <div className="p-4 space-y-4">
-          <div className="space-y-2">
-            <Label className="text-white">Mode</Label>
-            <Select
-              value={config.mode}
-              onValueChange={(value: VisualizationMode) =>
-                onChange({ ...config, mode: value })
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select visualization mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="waves">Wave Effect</SelectItem>
-                <SelectItem value="lines">Interactive Lines</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="space-y-2">
             <Label className="text-white">Threads: {config.threadCount}</Label>
             <Slider

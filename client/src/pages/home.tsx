@@ -8,7 +8,7 @@ export default function Home() {
     particlesPerThread: 50,
     repulsionForce: 50,
     colorTheme: "colored" as const,
-    mode: "default" as VisualizationMode,
+    mode: "waves" as VisualizationMode,
   });
 
   return (

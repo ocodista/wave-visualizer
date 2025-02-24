@@ -7,6 +7,7 @@ export class Particle {
   vy: number = 0;
   color: [number, number, number];
   size: number;
+  isDragged: boolean = false;
 
   constructor(x: number, y: number, colorTheme: "colored" | "white" | "black" = "colored") {
     this.x = x;
@@ -48,7 +49,7 @@ export class Particle {
     this.size = 4;
   }
 
-  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
+  updateWaveMode(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
     // Calculate distance to wave source
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
@@ -65,7 +66,7 @@ export class Particle {
       const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
       const timeDecay = Math.exp(-time * 0.02);
       const distanceDecay = Math.exp(-distance * 0.001);
-      const waveForce = Math.min(10, waveIntensity * timeDecay * distanceDecay * force * 0.02);
+      const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.02;
 
       const angle = Math.atan2(dy, dx);
       const forceX = Math.cos(angle) * waveForce;
@@ -75,6 +76,38 @@ export class Particle {
       this.vy += Math.min(Math.max(forceY, -10), 10);
     }
 
+    this.applySpringForce();
+  }
+
+  updateLineMode(mouseX: number, mouseY: number, force: number, neighbors: Particle[]) {
+    if (this.isDragged) {
+      const dragStrength = 0.2;
+      this.x += (mouseX - this.x) * dragStrength;
+      this.y += (mouseY - this.y) * dragStrength;
+      this.vx = 0;
+      this.vy = 0;
+    }
+
+    // Apply forces from neighboring particles
+    neighbors.forEach(neighbor => {
+      const dx = this.x - neighbor.x;
+      const dy = this.y - neighbor.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+
+      // Only apply forces if particles are connected
+      if (distance < 100) {
+        const forceMagnitude = (distance - 50) * 0.001 * force;
+        const angle = Math.atan2(dy, dx);
+
+        this.vx += Math.cos(angle) * forceMagnitude;
+        this.vy += Math.sin(angle) * forceMagnitude;
+      }
+    });
+
+    this.applySpringForce();
+  }
+
+  private applySpringForce() {
     // Apply spring force to return to home position
     const springStrength = 0.025;
     const homeForceX = (this.homeX - this.x) * springStrength;
@@ -91,8 +124,15 @@ export class Particle {
     this.y += this.vy;
 
     // Boundary check
-    this.x = Math.max(0, Math.min(this.x, canvasWidth));
-    this.y = Math.max(0, Math.min(this.y, canvasHeight));
+    this.x = Math.max(0, Math.min(this.x, 800)); //Assuming canvasWidth is 800.  Needs to be dynamic.
+    this.y = Math.max(0, Math.min(this.y, 600)); //Assuming canvasHeight is 600. Needs to be dynamic.
+  }
+
+  checkDrag(mouseX: number, mouseY: number): boolean {
+    const dx = this.x - mouseX;
+    const dy = this.y - mouseY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    return distance < 20;
   }
 
   // Get data for WebGL buffers

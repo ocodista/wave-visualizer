@@ -29,6 +29,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
   const drawCallsRef = useRef(0);
+  const draggedParticleRef = useRef<Particle | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -77,19 +78,55 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    const handleClick = (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      waveSourcesRef.current.push({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        time: 0
-      });
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (config.mode === "waves") {
+        waveSourcesRef.current.push({
+          x: mouseX,
+          y: mouseY,
+          time: 0
+        });
+      } else {
+        // Find the closest particle to drag
+        const allParticles = particlesRef.current.flat();
+        const closestParticle = allParticles.find(p => p.checkDrag(mouseX, mouseY));
+        if (closestParticle) {
+          draggedParticleRef.current = closestParticle;
+          closestParticle.isDragged = true;
+        }
+      }
     };
 
-    canvas.addEventListener("mousedown", handleClick);
-    canvas.addEventListener("mousemove", (e) => {
-      if (e.buttons > 0) handleClick(e);
-    });
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.buttons > 0) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        if (config.mode === "waves") {
+          handleMouseDown(e);
+        } else if (draggedParticleRef.current) {
+          // Update dragged particle position
+          draggedParticleRef.current.x = mouseX;
+          draggedParticleRef.current.y = mouseY;
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (draggedParticleRef.current) {
+        draggedParticleRef.current.isDragged = false;
+        draggedParticleRef.current = null;
+      }
+    };
+
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseup", handleMouseUp);
+    canvas.addEventListener("mouseleave", handleMouseUp);
 
     const animate = () => {
       const particles = particlesRef.current.flat();
@@ -97,23 +134,34 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       const colors: number[] = [];
       const sizes: number[] = [];
 
-      waveSourcesRef.current = waveSourcesRef.current.filter(source => {
-        source.time += 1;
-        return source.time < 300;
-      });
-
-      particles.forEach(particle => {
-        waveSourcesRef.current.forEach(source => {
-          particle.update(
-            source.x,
-            source.y,
-            config.repulsionForce,
-            source.time,
-            canvas.width,
-            canvas.height
-          );
+      if (config.mode === "waves") {
+        waveSourcesRef.current = waveSourcesRef.current.filter(source => {
+          source.time += 1;
+          return source.time < 300;
         });
 
+        particles.forEach(particle => {
+          waveSourcesRef.current.forEach(source => {
+            particle.updateWaveMode(
+              source.x,
+              source.y,
+              config.repulsionForce,
+              source.time,
+              canvas.width,
+              canvas.height
+            );
+          });
+        });
+      } else {
+        // Line mode: update particles with neighbor interactions
+        particles.forEach(particle => {
+          const neighbors = particles.filter(p => p !== particle);
+          particle.updateLineMode(0, 0, config.repulsionForce, neighbors);
+        });
+      }
+
+      // Collect data for rendering
+      particles.forEach(particle => {
         const data = particle.getBufferData();
         positions.push(data[0], data[1]);
         colors.push(data[2], data[3], data[4]);
@@ -133,6 +181,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
+      // Draw particles
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(positionLocation);
@@ -151,9 +200,42 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+      // Draw particles
       gl.drawArrays(gl.POINTS, 0, particles.length);
-      drawCallsRef.current++;
 
+      // Draw lines in line mode
+      if (config.mode === "lines") {
+        const lineVertices: number[] = [];
+        const lineColors: number[] = [];
+
+        particlesRef.current.forEach(thread => {
+          // Connect particles within the same thread
+          for (let i = 0; i < thread.length - 1; i++) {
+            lineVertices.push(
+              thread[i].x, thread[i].y,
+              thread[i + 1].x, thread[i + 1].y
+            );
+            lineColors.push(
+              ...thread[i].color, 0.2,
+              ...thread[i + 1].color, 0.2
+            );
+          }
+        });
+
+        // Update buffers for lines
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(lineVertices), gl.DYNAMIC_DRAW);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(lineColors), gl.DYNAMIC_DRAW);
+        gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 0, 0);
+
+        // Draw lines
+        gl.drawArrays(gl.LINES, 0, lineVertices.length / 2);
+      }
+
+      drawCallsRef.current++;
       frameRef.current = requestAnimationFrame(animate);
     };
 
@@ -161,10 +243,10 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
     return () => {
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousedown", handleClick);
-      canvas.removeEventListener("mousemove", (e) => {
-        if (e.buttons > 0) handleClick(e);
-      });
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mouseleave", handleMouseUp);
       cancelAnimationFrame(frameRef.current);
 
       gl.deleteProgram(program);
@@ -174,7 +256,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.deleteBuffer(colorBuffer);
       gl.deleteBuffer(sizeBuffer);
     };
-  }, [config.repulsionForce, config.colorTheme]);
+  }, [config.repulsionForce, config.colorTheme, config.mode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

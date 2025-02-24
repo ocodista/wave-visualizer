@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type VisualizationMode = "default";
+export type VisualizationMode = "waves" | "lines";
 export type ColorTheme = "colored" | "white" | "black";
 
 interface Config {
@@ -23,6 +23,24 @@ export default function Controls({ config, onChange }: ControlsProps) {
   return (
     <Card className="p-4 bg-black/80 border-white/20 backdrop-blur-sm w-[300px]">
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-white">Mode</Label>
+          <Select
+            value={config.mode}
+            onValueChange={(value: VisualizationMode) =>
+              onChange({ ...config, mode: value })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select visualization mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="waves">Wave Effect</SelectItem>
+              <SelectItem value="lines">Interactive Lines</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
           <Label className="text-white">Threads: {config.threadCount}</Label>
           <Slider

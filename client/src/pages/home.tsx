@@ -15,8 +15,6 @@ export default function Home() {
     <div className="min-h-screen w-full bg-black flex flex-col">
       <div className="flex-1 relative">
         <ParticleCanvas config={config} />
-      </div>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2">
         <Controls config={config} onChange={setConfig} />
       </div>
     </div>

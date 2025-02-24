@@ -76,17 +76,22 @@ export class Particle {
       this.vy += Math.min(Math.max(forceY, -10), 10);
     }
 
-    this.applySpringForce();
+    this.applySpringForce(canvasWidth, canvasHeight);
   }
 
-  updateLineMode(mouseX: number, mouseY: number, force: number, neighbors: Particle[]) {
+  updateLineMode(mouseX: number, mouseY: number, force: number, neighbors: Particle[], canvasWidth: number, canvasHeight: number) {
     if (this.isDragged) {
-      const dragStrength = 0.2;
-      this.x += (mouseX - this.x) * dragStrength;
-      this.y += (mouseY - this.y) * dragStrength;
+      // Direct position update when dragged
+      this.x = mouseX;
+      this.y = mouseY;
       this.vx = 0;
       this.vy = 0;
+      return;
     }
+
+    // Reset forces
+    this.vx = 0;
+    this.vy = 0;
 
     // Apply forces from neighboring particles
     neighbors.forEach(neighbor => {
@@ -94,28 +99,17 @@ export class Particle {
       const dy = this.y - neighbor.y;
       const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
-      // Only apply forces if particles are connected
-      if (distance < 100) {
-        const forceMagnitude = (distance - 50) * 0.001 * force;
+      if (distance > 0 && distance < 150) {
+        const forceMagnitude = (distance - 50) * force * 0.0001;
         const angle = Math.atan2(dy, dx);
 
+        // Add repulsion/attraction forces
         this.vx += Math.cos(angle) * forceMagnitude;
         this.vy += Math.sin(angle) * forceMagnitude;
       }
     });
 
-    this.applySpringForce();
-  }
-
-  private applySpringForce() {
-    // Apply spring force to return to home position
-    const springStrength = 0.025;
-    const homeForceX = (this.homeX - this.x) * springStrength;
-    const homeForceY = (this.homeY - this.y) * springStrength;
-    this.vx += homeForceX;
-    this.vy += homeForceY;
-
-    // Apply damping
+    // Add damping to movement
     this.vx *= 0.95;
     this.vy *= 0.95;
 
@@ -123,9 +117,20 @@ export class Particle {
     this.x += this.vx;
     this.y += this.vy;
 
+    this.applySpringForce(canvasWidth, canvasHeight);
+  }
+
+  private applySpringForce(canvasWidth: number, canvasHeight: number) {
+    // Apply spring force to return to home position
+    const springStrength = 0.025;
+    const homeForceX = (this.homeX - this.x) * springStrength;
+    const homeForceY = (this.homeY - this.y) * springStrength;
+    this.vx += homeForceX;
+    this.vy += homeForceY;
+
     // Boundary check
-    this.x = Math.max(0, Math.min(this.x, 800)); //Assuming canvasWidth is 800.  Needs to be dynamic.
-    this.y = Math.max(0, Math.min(this.y, 600)); //Assuming canvasHeight is 600. Needs to be dynamic.
+    this.x = Math.max(0, Math.min(this.x, canvasWidth));
+    this.y = Math.max(0, Math.min(this.y, canvasHeight));
   }
 
   checkDrag(mouseX: number, mouseY: number): boolean {

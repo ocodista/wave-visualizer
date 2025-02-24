@@ -109,9 +109,14 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
         if (config.mode === "waves") {
           handleMouseDown(e);
         } else if (draggedParticleRef.current) {
-          // Update dragged particle position
-          draggedParticleRef.current.x = mouseX;
-          draggedParticleRef.current.y = mouseY;
+          draggedParticleRef.current.updateLineMode(
+            mouseX,
+            mouseY,
+            config.repulsionForce,
+            particlesRef.current.flat().filter(p => p !== draggedParticleRef.current),
+            canvas.width,
+            canvas.height
+          );
         }
       }
     };
@@ -155,8 +160,16 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       } else {
         // Line mode: update particles with neighbor interactions
         particles.forEach(particle => {
-          const neighbors = particles.filter(p => p !== particle);
-          particle.updateLineMode(0, 0, config.repulsionForce, neighbors);
+          if (!particle.isDragged) {
+            particle.updateLineMode(
+              0,
+              0,
+              config.repulsionForce,
+              particles.filter(p => p !== particle),
+              canvas.width,
+              canvas.height
+            );
+          }
         });
       }
 

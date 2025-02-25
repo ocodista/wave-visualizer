@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Particle } from "./particle";
 import { createProgram, createShader, vertexShaderSource, fragmentShaderSource } from "./webgl-utils";
 import PerformanceMonitor from "./performance-monitor";
@@ -13,7 +13,6 @@ interface Config {
 
 interface ParticleCanvasProps {
   config: Config;
-  tornadoActive: boolean;
 }
 
 interface WaveSource {
@@ -22,7 +21,8 @@ interface WaveSource {
   time: number;
 }
 
-export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvasProps) {
+export default function ParticleCanvas({ config }: ParticleCanvasProps) {
+  const [statsVisible, setStatsVisible] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
   const programRef = useRef<WebGLProgram | null>(null);
@@ -31,6 +31,18 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
   const drawCallsRef = useRef(0);
   const timeRef = useRef(0);
   const lastClickTimeRef = useRef(0);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        setStatsVisible(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,50 +126,39 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
       const colors: number[] = [];
       const sizes: number[] = [];
 
-      if (tornadoActive) {
-        particles.forEach(particle => {
-          particle.updateTornado(timeRef.current, canvas.width, canvas.height);
+      //No tornadoActive used here.
+      waveSourcesRef.current = waveSourcesRef.current.filter(source => {
+        source.time += 0.8;
+        return source.time < 200; 
+      });
+
+      const chunkSize = 100;
+      for (let i = 0; i < particles.length; i += chunkSize) {
+        const chunk = particles.slice(i, i + chunkSize);
+        chunk.forEach(particle => {
+          const activeWaves = waveSourcesRef.current.filter(source =>
+            Math.abs(particle.x - source.x) < 300 &&
+            Math.abs(particle.y - source.y) < 300
+          );
+
+          activeWaves.forEach(source => {
+            particle.update(
+              source.x,
+              source.y,
+              config.repulsionForce,
+              source.time,
+              canvas.width,
+              canvas.height
+            );
+          });
+
           const data = particle.getBufferData();
           positions.push(data[0], data[1]);
           colors.push(data[2], data[3], data[4]);
           sizes.push(data[5]);
         });
-      } else {
-        // Filter out old wave sources more aggressively
-        waveSourcesRef.current = waveSourcesRef.current.filter(source => {
-          source.time += 0.8;
-          return source.time < 200; // Reduced from 400 to 200 for better performance
-        });
-
-        // Process particles in chunks for better performance
-        const chunkSize = 100;
-        for (let i = 0; i < particles.length; i += chunkSize) {
-          const chunk = particles.slice(i, i + chunkSize);
-          chunk.forEach(particle => {
-            // Only process active wave sources
-            const activeWaves = waveSourcesRef.current.filter(source =>
-              Math.abs(particle.x - source.x) < 300 &&
-              Math.abs(particle.y - source.y) < 300
-            );
-
-            activeWaves.forEach(source => {
-              particle.update(
-                source.x,
-                source.y,
-                config.repulsionForce,
-                source.time,
-                canvas.width,
-                canvas.height
-              );
-            });
-
-            const data = particle.getBufferData();
-            positions.push(data[0], data[1]);
-            colors.push(data[2], data[3], data[4]);
-            sizes.push(data[5]);
-          });
-        }
       }
+
 
       if (config.colorTheme === "black") {
         gl.clearColor(1, 1, 1, 1);
@@ -214,7 +215,7 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
       gl.deleteBuffer(colorBuffer);
       gl.deleteBuffer(sizeBuffer);
     };
-  }, [config.repulsionForce, config.colorTheme, tornadoActive]);
+  }, [config.repulsionForce, config.colorTheme]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -241,10 +242,16 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
   return (
     <>
       <canvas ref={canvasRef} className="w-full h-full select-none" />
-      <PerformanceMonitor
-        particleCount={particlesRef.current.flat().length}
-        drawCalls={drawCallsRef.current}
-      />
+      {statsVisible ? (
+        <PerformanceMonitor
+          particleCount={particlesRef.current.flat().length}
+          drawCalls={drawCallsRef.current}
+        />
+      ) : (
+        <div className="fixed top-4 right-4 text-white/50 text-sm">
+          Press Enter to show stats
+        </div>
+      )}
     </>
   );
 }

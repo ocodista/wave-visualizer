@@ -101,6 +101,8 @@ export default function Controls({ config, onChange, visible }: ControlsProps) {
           <h3 className="text-white text-sm font-medium mb-2">How to Use</h3>
           <ul className="text-white/70 text-xs space-y-1">
             <li>• Click or drag to create wave effects</li>
+            <li>• Press Space to toggle controls</li>
+            <li>• Press Enter to toggle performance stats</li>
             <li>• Adjust threads and particles for different resolutions</li>
             <li>• Modify force to change wave intensity</li>
             <li>• Try different color themes for unique visuals</li>

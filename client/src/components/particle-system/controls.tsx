@@ -33,7 +33,7 @@ export default function Controls({ config, onChange, visible }: ControlsProps) {
 
       <div className="p-4 space-y-4">
         <div className="space-y-2">
-          <Label className="text-white">Columns: {config.threadCount}</Label>
+          <Label className="text-white">Strings: {config.threadCount}</Label>
           <Slider
             value={[config.threadCount]}
             onValueChange={([value]) =>
@@ -48,7 +48,7 @@ export default function Controls({ config, onChange, visible }: ControlsProps) {
 
         <div className="space-y-2">
           <Label className="text-white">
-            Particles per Column: {config.particlesPerThread}
+            Particles per String: {config.particlesPerThread}
           </Label>
           <Slider
             value={[config.particlesPerThread]}
@@ -103,7 +103,7 @@ export default function Controls({ config, onChange, visible }: ControlsProps) {
             <li>• Click or drag to create wave effects</li>
             <li>• Press Space to toggle controls</li>
             <li>• Press Enter to toggle performance stats</li>
-            <li>• Adjust columns and particles for different resolutions</li>
+            <li>• Adjust strings and particles for different resolutions</li>
             <li>• Modify click repulsion force to change wave intensity</li>
             <li>• Try different color themes for unique visuals</li>
           </ul>

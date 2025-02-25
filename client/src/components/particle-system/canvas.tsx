@@ -36,6 +36,11 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Store particles globally for repulsion effects
+    (globalThis as any).particleSystem = {
+      particles: particlesRef.current.flat()
+    };
+
     const gl = canvas.getContext('webgl', {
       alpha: false,
       antialias: true,
@@ -130,8 +135,8 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
           const chunk = particles.slice(i, i + chunkSize);
           chunk.forEach(particle => {
             // Only process active wave sources
-            const activeWaves = waveSourcesRef.current.filter(source => 
-              Math.abs(particle.x - source.x) < 300 && 
+            const activeWaves = waveSourcesRef.current.filter(source =>
+              Math.abs(particle.x - source.x) < 300 &&
               Math.abs(particle.y - source.y) < 300
             );
 
@@ -193,6 +198,8 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
     animate();
 
     return () => {
+      // Cleanup
+      (globalThis as any).particleSystem = null;
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousedown", handleClick);
       canvas.removeEventListener("mousemove", (e) => {

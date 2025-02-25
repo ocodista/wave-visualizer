@@ -17,9 +17,9 @@ export class Particle {
 
     // Set color based on theme
     if (colorTheme === "white") {
-      this.color = [1, 1, 1]; // White
+      this.color = [1, 1, 1];
     } else if (colorTheme === "black") {
-      this.color = [0, 0, 0]; // Black
+      this.color = [0, 0, 0];
     } else {
       // Convert HSL to RGB for WebGL
       const hue = Math.random() * 360;
@@ -50,29 +50,21 @@ export class Particle {
   }
 
   update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number, tornadoMode: boolean = false) {
-    // Calculate distance to wave source
+    if (tornadoMode) {
+      this.updateTornado(time, canvasWidth, canvasHeight);
+      return;
+    }
+
+    // Wave effect physics
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
-    // Improved wave parameters for more realistic water ripple effect
-    const waveSpeed = 5; // Faster wave propagation
-    const waveRadius = time * waveSpeed;
-    const waveWidth = 80; // Wider wave for smoother effect
-
-    // Apply wave force if within range
-    if (Math.abs(distance - waveRadius) < waveWidth) {
-      // Calculate wave intensity with smooth falloff
-      const wavePosition = Math.abs(distance - waveRadius) / waveWidth;
+    if (Math.abs(distance - time * 5) < 80) {
+      const wavePosition = Math.abs(distance - time * 5) / 80;
       const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI * 2);
-
-      // Time-based decay for natural wave dissipation
       const timeDecay = Math.exp(-time * 0.015);
-
-      // Distance-based attenuation
       const distanceDecay = Math.exp(-distance * 0.002);
-
-      // Combined force with smooth transition
       const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.015;
 
       const angle = Math.atan2(dy, dx);
@@ -83,7 +75,7 @@ export class Particle {
       this.vy += Math.min(Math.max(forceY, -5), 5);
     }
 
-    // Apply spring force to return to home position
+    // Return to home position
     const springStrength = 0.02;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
@@ -101,43 +93,67 @@ export class Particle {
     // Boundary check
     this.x = Math.max(0, Math.min(this.x, canvasWidth));
     this.y = Math.max(0, Math.min(this.y, canvasHeight));
-
-    if (tornadoMode) {
-      this.updateTornado(time, canvasWidth, canvasHeight);
-    }
   }
 
   updateTornado(time: number, canvasWidth: number, canvasHeight: number) {
     const centerX = canvasWidth / 2;
+    const centerY = canvasHeight;
 
-    // Calculate normalized height (0 at bottom, 1 at top)
-    const normalizedHeight = 1 - (this.y / canvasHeight);
+    // Calculate normalized height from bottom (0) to top (1)
+    const normalizedHeight = this.y / canvasHeight;
 
-    // Base radius decreases with height using square root function
-    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.3;
-    const radius = maxRadius * Math.sqrt(1 - normalizedHeight);
+    // Base radius is small (5 pixels) at bottom, grows linearly with height
+    const baseRadius = 5;
+    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.4;
+    const radius = baseRadius + (maxRadius - baseRadius) * (1 - normalizedHeight);
 
-    // Angular velocity increases with height
-    const angularSpeed = 0.02 + normalizedHeight * 0.04;
-    this.angle += angularSpeed;
+    // Clockwise rotation (negative angle change)
+    this.angle -= 0.05 + (1 - normalizedHeight) * 0.05; // Faster at top
 
-    // Spiral motion
-    const spiralX = centerX + radius * Math.cos(this.angle);
-    const spiralY = this.y;
+    // Calculate target position on the spiral
+    const targetX = centerX + radius * Math.cos(this.angle);
+    const targetY = this.y;
 
-    // Vertical movement (faster at the top)
-    const verticalSpeed = 2 + normalizedHeight * 3;
+    // Move towards target position
+    const moveSpeed = 0.1;
+    this.x += (targetX - this.x) * moveSpeed;
 
-    // Update position with smooth transition
-    const transitionSpeed = 0.1;
-    this.x += (spiralX - this.x) * transitionSpeed;
-    this.y -= verticalSpeed;
+    // Upward movement, faster at the top
+    const upwardSpeed = 2 + (1 - normalizedHeight) * 4;
+    this.y -= upwardSpeed;
 
-    // Reset particles that reach the top
+    // Reset position when reaching the top
     if (this.y < 0) {
       this.y = canvasHeight;
       this.x = this.homeX;
+      this.angle = 0;
     }
+
+    // Add repulsion effect to nearby particles
+    const particles = (globalThis as any).particleSystem?.particles || [];
+    particles.forEach((other: Particle) => {
+      if (other === this) return;
+
+      const dx = this.x - other.x;
+      const dy = this.y - other.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < radius * 0.5 && distance > 0) {
+        const repulsionForce = 0.5 * (1 - distance / (radius * 0.5));
+        const angle = Math.atan2(dy, dx);
+
+        other.vx += Math.cos(angle) * repulsionForce;
+        other.vy += Math.sin(angle) * repulsionForce;
+
+        // Wall bouncing
+        if (other.x <= 0 || other.x >= canvasWidth) {
+          other.vx *= -0.8; // Bounce with some energy loss
+        }
+        if (other.y <= 0 || other.y >= canvasHeight) {
+          other.vy *= -0.8;
+        }
+      }
+    });
   }
 
   // Get data for WebGL buffers

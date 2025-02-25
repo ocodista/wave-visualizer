@@ -110,6 +110,111 @@ The system uses a wave-based interaction model:
    - Add adaptive particle count based on FPS
    - Implement spatial partitioning for optimized updates
 
+# Particle Density and Visual Quality in WebGL Particle Systems
+
+## Understanding Thread and Particle Density
+
+The fluidity and visual quality of our particle system significantly improve when we increase the number of threads and particles per thread. This enhancement occurs due to several key factors:
+
+### 1. Spatial Resolution
+
+The number of threads and particles essentially determines the "resolution" of our fluid simulation. Similar to how a higher resolution display provides more detailed images, more particles allow for:
+
+- Finer granularity in wave propagation
+- Smoother transitions between affected areas
+- More precise representation of force fields
+- Better visual continuity in motion
+
+For example, with 20 threads and 50 particles per thread (1,000 total particles), we have a moderate resolution that might show visible gaps in wave propagation. Increasing to 50 threads and 200 particles per thread (10,000 total particles) creates a much more continuous and fluid-like appearance.
+
+### 2. Wave Propagation Physics
+
+The wave effect in our system propagates through particles by:
+```typescript
+const waveSpeed = 5;
+const waveRadius = time * waveSpeed;
+const waveWidth = 80;
+
+// Wave intensity calculation
+const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI * 2);
+```
+
+With more particles:
+- Forces propagate more smoothly between neighboring particles
+- Wave patterns appear more natural and continuous
+- Energy transfer between particles becomes more gradual
+- Interference patterns become more apparent and realistic
+
+### 3. Interpolation and Visual Continuity
+
+Higher particle density provides better interpolation between affected areas:
+
+- Waves appear smoother due to more intermediate points
+- Force gradients have finer transitions
+- Motion appears more fluid with less visible "stepping"
+- Visual artifacts from discretization become less noticeable
+
+### 4. GPU Processing Advantages
+
+Our WebGL implementation actually benefits from higher particle counts:
+
+- Modern GPUs are optimized for parallel processing of many similar elements
+- The overhead of setting up WebGL contexts and shaders remains constant
+- The cost per particle is minimal due to hardware optimization
+- Batch processing of particles is highly efficient
+
+### 5. Physical Simulation Accuracy
+
+More particles lead to better physical simulation because:
+
+- Forces can propagate more accurately through the system
+- Local interactions become more precise
+- Edge cases and boundaries are better represented
+- The overall system behaves more like a continuous medium
+
+### Technical Implementation
+
+The improved visual quality comes from our shader implementation:
+```glsl
+void main() {
+    vec2 coord = gl_PointCoord - vec2(0.5);
+    float distance = length(coord);
+
+    if (distance > 0.5) {
+        discard;
+    }
+
+    float alpha = 1.0 - smoothstep(0.45, 0.5, distance);
+    gl_FragColor = vec4(v_color, alpha);
+}
+```
+
+This shader creates smooth particles that blend together, and with higher particle counts, these blended areas create a more continuous appearance.
+
+### Performance Considerations
+
+While increasing particle count improves visual quality, there's a balance to strike:
+
+- GPU memory usage increases linearly with particle count
+- Frame rate needs to remain stable for smooth animation
+- Browser capabilities and hardware limitations need consideration
+- Diminishing returns occur at very high particle counts
+
+### Optimal Settings
+
+For most modern devices, we've found these ranges to work well:
+- Threads: 20-50
+- Particles per thread: 50-200
+- Total particles: 1,000-10,000
+
+These numbers provide excellent visual quality while maintaining performance across different devices.
+
+## Conclusion
+
+The improvement in visual quality with higher particle counts is not just about "more is better" - it's about reaching a density where discrete particles begin to create the illusion of a continuous medium. This threshold, combined with our physics simulation and WebGL rendering, creates the fluid, organic motion that makes the particle system so engaging.
+
+Understanding these principles helps in optimizing the balance between visual quality and performance, ensuring the best possible user experience across different devices and contexts.
+
 ## Getting Started
 
 1. Clone the repository

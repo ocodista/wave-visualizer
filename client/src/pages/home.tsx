@@ -10,11 +10,19 @@ export default function Home() {
     colorTheme: "colored" as const,
   });
 
+  const [tornadoActive, setTornadoActive] = useState(false);
+
+  const handleTornado = () => {
+    setTornadoActive(true);
+    // Deactivate tornado after 5 seconds
+    setTimeout(() => setTornadoActive(false), 5000);
+  };
+
   return (
     <div className="min-h-screen w-full bg-black flex flex-col">
       <div className="flex-1 relative">
-        <ParticleCanvas config={config} />
-        <Controls config={config} onChange={setConfig} />
+        <ParticleCanvas config={config} tornadoActive={tornadoActive} />
+        <Controls config={config} onChange={setConfig} onTornado={handleTornado} />
       </div>
     </div>
   );

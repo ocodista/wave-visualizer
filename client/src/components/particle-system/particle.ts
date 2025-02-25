@@ -7,6 +7,7 @@ export class Particle {
   vy: number = 0;
   color: [number, number, number];
   size: number;
+  angle: number = 0;
 
   constructor(x: number, y: number, colorTheme: "colored" | "white" | "black" = "colored") {
     this.x = x;
@@ -48,7 +49,7 @@ export class Particle {
     this.size = 4;
   }
 
-  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
+  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number, tornadoMode: boolean = false) {
     // Calculate distance to wave source
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
@@ -66,7 +67,7 @@ export class Particle {
       const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI * 2);
 
       // Time-based decay for natural wave dissipation
-      const timeDecay = Math.exp(-time * 0.015); // Slower decay for longer-lasting waves
+      const timeDecay = Math.exp(-time * 0.015);
 
       // Distance-based attenuation
       const distanceDecay = Math.exp(-distance * 0.002);
@@ -74,25 +75,23 @@ export class Particle {
       // Combined force with smooth transition
       const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.015;
 
-      // Apply force in radial direction
       const angle = Math.atan2(dy, dx);
       const forceX = Math.cos(angle) * waveForce;
       const forceY = Math.sin(angle) * waveForce;
 
-      // Add forces with smooth clamping
       this.vx += Math.min(Math.max(forceX, -5), 5);
       this.vy += Math.min(Math.max(forceY, -5), 5);
     }
 
-    // Apply spring force to return to home position with smoother transition
-    const springStrength = 0.02; // Gentler spring force
+    // Apply spring force to return to home position
+    const springStrength = 0.02;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
     this.vx += homeForceX;
     this.vy += homeForceY;
 
-    // Apply damping for smoother motion
-    this.vx *= 0.96; // Slightly higher damping for smoother movement
+    // Apply damping
+    this.vx *= 0.96;
     this.vy *= 0.96;
 
     // Update position
@@ -102,6 +101,43 @@ export class Particle {
     // Boundary check
     this.x = Math.max(0, Math.min(this.x, canvasWidth));
     this.y = Math.max(0, Math.min(this.y, canvasHeight));
+
+    if (tornadoMode) {
+      this.updateTornado(time, canvasWidth, canvasHeight);
+    }
+  }
+
+  updateTornado(time: number, canvasWidth: number, canvasHeight: number) {
+    const centerX = canvasWidth / 2;
+
+    // Calculate normalized height (0 at bottom, 1 at top)
+    const normalizedHeight = 1 - (this.y / canvasHeight);
+
+    // Base radius decreases with height using square root function
+    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.3;
+    const radius = maxRadius * Math.sqrt(1 - normalizedHeight);
+
+    // Angular velocity increases with height
+    const angularSpeed = 0.02 + normalizedHeight * 0.04;
+    this.angle += angularSpeed;
+
+    // Spiral motion
+    const spiralX = centerX + radius * Math.cos(this.angle);
+    const spiralY = this.y;
+
+    // Vertical movement (faster at the top)
+    const verticalSpeed = 2 + normalizedHeight * 3;
+
+    // Update position with smooth transition
+    const transitionSpeed = 0.1;
+    this.x += (spiralX - this.x) * transitionSpeed;
+    this.y -= verticalSpeed;
+
+    // Reset particles that reach the top
+    if (this.y < 0) {
+      this.y = canvasHeight;
+      this.x = this.homeX;
+    }
   }
 
   // Get data for WebGL buffers

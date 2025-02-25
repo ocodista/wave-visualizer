@@ -13,6 +13,7 @@ interface Config {
 
 interface ParticleCanvasProps {
   config: Config;
+  tornadoActive: boolean;
 }
 
 interface WaveSource {
@@ -21,13 +22,14 @@ interface WaveSource {
   time: number;
 }
 
-export default function ParticleCanvas({ config }: ParticleCanvasProps) {
+export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[][]>([]);
   const programRef = useRef<WebGLProgram | null>(null);
   const waveSourcesRef = useRef<WaveSource[]>([]);
   const frameRef = useRef(0);
   const drawCallsRef = useRef(0);
+  const timeRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,33 +94,44 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
 
     const animate = () => {
+      timeRef.current += 1;
       const particles = particlesRef.current.flat();
       const positions: number[] = [];
       const colors: number[] = [];
       const sizes: number[] = [];
 
-      waveSourcesRef.current = waveSourcesRef.current.filter(source => {
-        source.time += 0.8; 
-        return source.time < 400; 
-      });
-
-      particles.forEach(particle => {
-        waveSourcesRef.current.forEach(source => {
-          particle.update(
-            source.x,
-            source.y,
-            config.repulsionForce,
-            source.time,
-            canvas.width,
-            canvas.height
-          );
+      if (tornadoActive) {
+        particles.forEach(particle => {
+          particle.updateTornado(timeRef.current, canvas.width, canvas.height);
+          const data = particle.getBufferData();
+          positions.push(data[0], data[1]);
+          colors.push(data[2], data[3], data[4]);
+          sizes.push(data[5]);
+        });
+      } else {
+        waveSourcesRef.current = waveSourcesRef.current.filter(source => {
+          source.time += 0.8;
+          return source.time < 400;
         });
 
-        const data = particle.getBufferData();
-        positions.push(data[0], data[1]);
-        colors.push(data[2], data[3], data[4]);
-        sizes.push(data[5]);
-      });
+        particles.forEach(particle => {
+          waveSourcesRef.current.forEach(source => {
+            particle.update(
+              source.x,
+              source.y,
+              config.repulsionForce,
+              source.time,
+              canvas.width,
+              canvas.height
+            );
+          });
+
+          const data = particle.getBufferData();
+          positions.push(data[0], data[1]);
+          colors.push(data[2], data[3], data[4]);
+          sizes.push(data[5]);
+        });
+      }
 
       if (config.colorTheme === "black") {
         gl.clearColor(1, 1, 1, 1);
@@ -173,7 +186,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       gl.deleteBuffer(colorBuffer);
       gl.deleteBuffer(sizeBuffer);
     };
-  }, [config.repulsionForce, config.colorTheme]);
+  }, [config.repulsionForce, config.colorTheme, tornadoActive]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

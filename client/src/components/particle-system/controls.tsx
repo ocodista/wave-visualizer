@@ -18,9 +18,10 @@ interface Config {
 interface ControlsProps {
   config: Config;
   onChange: (config: Config) => void;
+  onTornado: () => void;
 }
 
-export default function Controls({ config, onChange }: ControlsProps) {
+export default function Controls({ config, onChange, onTornado }: ControlsProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
@@ -39,6 +40,13 @@ export default function Controls({ config, onChange }: ControlsProps) {
 
       {!isCollapsed && (
         <div className="p-4 space-y-4">
+          <Button 
+            onClick={onTornado}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Create Tornado
+          </Button>
+
           <div className="space-y-2">
             <Label className="text-white">Threads: {config.threadCount}</Label>
             <Slider

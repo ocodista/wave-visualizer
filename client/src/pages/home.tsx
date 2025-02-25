@@ -1,6 +1,6 @@
 import ParticleCanvas from "@/components/particle-system/canvas";
 import Controls from "@/components/particle-system/controls";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [config, setConfig] = useState({
@@ -10,19 +10,30 @@ export default function Home() {
     colorTheme: "colored" as const,
   });
 
-  const [tornadoActive, setTornadoActive] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
 
-  const handleTornado = () => {
-    setTornadoActive(true);
-    // Deactivate tornado after 5 seconds
-    setTimeout(() => setTornadoActive(false), 5000);
-  };
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault(); // Prevent page scroll
+        setControlsVisible(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-black flex flex-col">
       <div className="flex-1 relative">
-        <ParticleCanvas config={config} tornadoActive={tornadoActive} />
-        <Controls config={config} onChange={setConfig} onTornado={handleTornado} />
+        <ParticleCanvas config={config} />
+        <Controls config={config} onChange={setConfig} visible={controlsVisible} />
+        {!controlsVisible && (
+          <div className="fixed bottom-4 right-4 text-white/50 text-sm">
+            Press Space to show controls
+          </div>
+        )}
       </div>
     </div>
   );

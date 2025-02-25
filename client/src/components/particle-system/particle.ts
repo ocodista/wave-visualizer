@@ -157,6 +157,9 @@ export class Particle {
     const targetX = centerX + radius * Math.cos(this.angle);
     const targetY = this.y;
 
+    // Upward movement, faster at the top
+    const upwardSpeed = 2 + normalizedHeight * 4;
+
     // Calculate velocity for color updates
     const dx = targetX - this.x;
     const dy = targetY - this.y;
@@ -166,9 +169,6 @@ export class Particle {
     // Move towards target position
     const moveSpeed = 0.1;
     this.x += (targetX - this.x) * moveSpeed;
-
-    // Upward movement, faster at the top
-    const upwardSpeed = 2 + normalizedHeight * 4;
     this.y -= upwardSpeed;
 
     // Update color based on height and velocity

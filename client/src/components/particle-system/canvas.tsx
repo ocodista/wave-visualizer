@@ -242,15 +242,11 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
   return (
     <>
       <canvas ref={canvasRef} className="w-full h-full select-none" />
-      {statsVisible ? (
+      {statsVisible && (
         <PerformanceMonitor
           particleCount={particlesRef.current.flat().length}
           drawCalls={drawCallsRef.current}
         />
-      ) : (
-        <div className="fixed top-4 right-4 text-white/50 text-sm">
-          Press Enter to show stats
-        </div>
       )}
     </>
   );

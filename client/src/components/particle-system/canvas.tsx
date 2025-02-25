@@ -30,6 +30,7 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
   const frameRef = useRef(0);
   const drawCallsRef = useRef(0);
   const timeRef = useRef(0);
+  const lastClickTimeRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -79,7 +80,16 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
     window.addEventListener("resize", resize);
 
     const handleClick = (e: MouseEvent) => {
+      const currentTime = Date.now();
+      // Limit click rate to prevent too many wave sources
+      if (currentTime - lastClickTimeRef.current < 50) return;
+      lastClickTimeRef.current = currentTime;
+
       const rect = canvas.getBoundingClientRect();
+      // Limit maximum number of wave sources
+      if (waveSourcesRef.current.length >= 10) {
+        waveSourcesRef.current.shift(); // Remove oldest wave source
+      }
       waveSourcesRef.current.push({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
@@ -91,7 +101,6 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
     canvas.addEventListener("mousemove", (e) => {
       if (e.buttons > 0) handleClick(e);
     });
-
 
     const animate = () => {
       timeRef.current += 1;
@@ -109,28 +118,40 @@ export default function ParticleCanvas({ config, tornadoActive }: ParticleCanvas
           sizes.push(data[5]);
         });
       } else {
+        // Filter out old wave sources more aggressively
         waveSourcesRef.current = waveSourcesRef.current.filter(source => {
           source.time += 0.8;
-          return source.time < 400;
+          return source.time < 200; // Reduced from 400 to 200 for better performance
         });
 
-        particles.forEach(particle => {
-          waveSourcesRef.current.forEach(source => {
-            particle.update(
-              source.x,
-              source.y,
-              config.repulsionForce,
-              source.time,
-              canvas.width,
-              canvas.height
+        // Process particles in chunks for better performance
+        const chunkSize = 100;
+        for (let i = 0; i < particles.length; i += chunkSize) {
+          const chunk = particles.slice(i, i + chunkSize);
+          chunk.forEach(particle => {
+            // Only process active wave sources
+            const activeWaves = waveSourcesRef.current.filter(source => 
+              Math.abs(particle.x - source.x) < 300 && 
+              Math.abs(particle.y - source.y) < 300
             );
-          });
 
-          const data = particle.getBufferData();
-          positions.push(data[0], data[1]);
-          colors.push(data[2], data[3], data[4]);
-          sizes.push(data[5]);
-        });
+            activeWaves.forEach(source => {
+              particle.update(
+                source.x,
+                source.y,
+                config.repulsionForce,
+                source.time,
+                canvas.width,
+                canvas.height
+              );
+            });
+
+            const data = particle.getBufferData();
+            positions.push(data[0], data[1]);
+            colors.push(data[2], data[3], data[4]);
+            sizes.push(data[5]);
+          });
+        }
       }
 
       if (config.colorTheme === "black") {

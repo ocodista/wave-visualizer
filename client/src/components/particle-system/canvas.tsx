@@ -126,22 +126,17 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
       const colors: number[] = [];
       const sizes: number[] = [];
 
-      //No tornadoActive used here.
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
         source.time += 0.8;
-        return source.time < 200; 
+        return source.time < 200;
       });
 
       const chunkSize = 100;
       for (let i = 0; i < particles.length; i += chunkSize) {
         const chunk = particles.slice(i, i + chunkSize);
         chunk.forEach(particle => {
-          const activeWaves = waveSourcesRef.current.filter(source =>
-            Math.abs(particle.x - source.x) < 300 &&
-            Math.abs(particle.y - source.y) < 300
-          );
-
-          activeWaves.forEach(source => {
+          // Process all wave sources for every particle
+          waveSourcesRef.current.forEach(source => {
             particle.update(
               source.x,
               source.y,
@@ -158,7 +153,6 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
           sizes.push(data[5]);
         });
       }
-
 
       if (config.colorTheme === "black") {
         gl.clearColor(1, 1, 1, 1);

@@ -100,11 +100,13 @@ export class Particle {
     const dy = this.y - mouseY;
     const distance = Math.sqrt(dx * dx + dy * dy) || 0.0001;
 
-    if (Math.abs(distance - time * 5) < 80) {
-      const wavePosition = Math.abs(distance - time * 5) / 80;
-      const waveIntensity = Math.exp(-wavePosition * 2) * Math.sin(wavePosition * Math.PI * 2);
-      const timeDecay = Math.exp(-time * 0.015);
-      const distanceDecay = Math.exp(-distance * 0.002);
+    // Wider wave width and slower decay for smoother propagation
+    const waveWidth = 150;
+    if (Math.abs(distance - time * 3) < waveWidth) {
+      const wavePosition = Math.abs(distance - time * 3) / waveWidth;
+      const waveIntensity = Math.exp(-wavePosition) * Math.sin(wavePosition * Math.PI * 2);
+      const timeDecay = Math.exp(-time * 0.008); // Slower time decay
+      const distanceDecay = Math.exp(-distance * 0.0005); // More gradual distance falloff
       const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.015;
 
       const angle = Math.atan2(dy, dx);
@@ -115,16 +117,16 @@ export class Particle {
       this.vy += Math.min(Math.max(forceY, -5), 5);
     }
 
-    // Return to home position
-    const springStrength = 0.02;
+    // Return to home position with gentler spring force
+    const springStrength = 0.015;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
     this.vx += homeForceX;
     this.vy += homeForceY;
 
     // Apply damping
-    this.vx *= 0.96;
-    this.vy *= 0.96;
+    this.vx *= 0.97;
+    this.vy *= 0.97;
 
     // Update position
     this.x += this.vx;

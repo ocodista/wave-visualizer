@@ -100,15 +100,15 @@ export class Particle {
     const centerY = canvasHeight;
 
     // Calculate normalized height from bottom (0) to top (1)
-    const normalizedHeight = this.y / canvasHeight;
+    const normalizedHeight = 1 - (this.y / canvasHeight);
 
-    // Base radius is small (5 pixels) at bottom, grows linearly with height
+    // Base radius is small (5 pixels) at bottom, grows linearly to half screen width at top
     const baseRadius = 5;
-    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.4;
-    const radius = baseRadius + (maxRadius - baseRadius) * (1 - normalizedHeight);
+    const maxRadius = canvasWidth * 0.25; // Quarter width each side = half width total
+    const radius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
 
     // Clockwise rotation (negative angle change)
-    this.angle -= 0.05 + (1 - normalizedHeight) * 0.05; // Faster at top
+    this.angle -= 0.05 + normalizedHeight * 0.05; // Faster at top
 
     // Calculate target position on the spiral
     const targetX = centerX + radius * Math.cos(this.angle);
@@ -119,7 +119,7 @@ export class Particle {
     this.x += (targetX - this.x) * moveSpeed;
 
     // Upward movement, faster at the top
-    const upwardSpeed = 2 + (1 - normalizedHeight) * 4;
+    const upwardSpeed = 2 + normalizedHeight * 4;
     this.y -= upwardSpeed;
 
     // Reset position when reaching the top
@@ -156,7 +156,6 @@ export class Particle {
     });
   }
 
-  // Get data for WebGL buffers
   getBufferData(): number[] {
     return [this.x, this.y, ...this.color, this.size];
   }

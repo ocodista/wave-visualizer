@@ -113,46 +113,30 @@ export class Particle {
     // Calculate normalized height (0 at bottom, 1 at top)
     const normalizedHeight = 1 - (this.y / canvasHeight);
 
-    // Create a funnel shape that grows wider at the top
-    // Use an exponential function for the radius growth
-    const baseRadius = Math.min(canvasWidth, canvasHeight) * 0.05; // Smaller base
-    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.3; // Wider top
-    const radius = baseRadius + (maxRadius - baseRadius) * Math.pow(normalizedHeight, 0.7);
+    // Base radius decreases with height using square root function
+    const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.3;
+    const radius = maxRadius * Math.sqrt(1 - normalizedHeight);
 
-    // Add some turbulence to the radius
-    const turbulence = Math.sin(time * 0.1 + this.homeY * 0.1) * radius * 0.2;
-    const finalRadius = radius + turbulence;
+    // Angular velocity increases with height
+    const angularSpeed = 0.02 + normalizedHeight * 0.04;
+    this.angle += angularSpeed;
 
-    // Angular velocity increases with height for spiral effect
-    const baseAngularSpeed = 0.02;
-    const heightEffect = normalizedHeight * 0.08;
-    this.angle += baseAngularSpeed + heightEffect;
-
-    // Add horizontal oscillation for more natural movement
-    const oscillation = Math.sin(this.angle * 2) * finalRadius * 0.2;
-
-    // Calculate new position with spiral motion
-    const spiralX = centerX + (finalRadius + oscillation) * Math.cos(this.angle);
+    // Spiral motion
+    const spiralX = centerX + radius * Math.cos(this.angle);
     const spiralY = this.y;
 
     // Vertical movement (faster at the top)
-    const baseSpeed = 2;
-    const speedMultiplier = 1 + normalizedHeight * 2;
-    const verticalSpeed = baseSpeed * speedMultiplier;
+    const verticalSpeed = 2 + normalizedHeight * 3;
 
     // Update position with smooth transition
     const transitionSpeed = 0.1;
     this.x += (spiralX - this.x) * transitionSpeed;
     this.y -= verticalSpeed;
 
-    // Add some horizontal turbulence
-    this.x += (Math.random() - 0.5) * 2;
-
     // Reset particles that reach the top
     if (this.y < 0) {
       this.y = canvasHeight;
-      // Randomize starting X position slightly for more natural flow
-      this.x = centerX + (Math.random() - 0.5) * 100;
+      this.x = this.homeX;
     }
   }
 

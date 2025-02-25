@@ -89,12 +89,7 @@ export class Particle {
     }
   }
 
-  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number, tornadoMode: boolean = false) {
-    if (tornadoMode) {
-      this.updateTornado(time, canvasWidth, canvasHeight);
-      return;
-    }
-
+  update(mouseX: number, mouseY: number, force: number, time: number, canvasWidth: number, canvasHeight: number) {
     // Wave effect physics
     const dx = this.x - mouseX;
     const dy = this.y - mouseY;
@@ -102,12 +97,14 @@ export class Particle {
 
     // Wider wave width and slower decay for smoother propagation
     const waveWidth = 150;
+    let waveActive = false;
+
     if (Math.abs(distance - time * 3) < waveWidth) {
       const wavePosition = Math.abs(distance - time * 3) / waveWidth;
-      const waveIntensity = Math.exp(-wavePosition) * Math.sin(wavePosition * Math.PI * 2);
-      const timeDecay = Math.exp(-time * 0.008); // Slower time decay
-      const distanceDecay = Math.exp(-distance * 0.0005); // More gradual distance falloff
-      const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.015;
+      const waveIntensity = Math.exp(-wavePosition * 1.5) * Math.sin(wavePosition * Math.PI);
+      const timeDecay = Math.exp(-time * 0.02);
+      const distanceDecay = Math.exp(-distance * 0.001);
+      const waveForce = waveIntensity * timeDecay * distanceDecay * force * 0.01;
 
       const angle = Math.atan2(dy, dx);
       const forceX = Math.cos(angle) * waveForce;
@@ -115,18 +112,21 @@ export class Particle {
 
       this.vx += Math.min(Math.max(forceX, -5), 5);
       this.vy += Math.min(Math.max(forceY, -5), 5);
+      waveActive = true;
     }
 
-    // Return to home position with gentler spring force
-    const springStrength = 0.015;
+    // Weaker spring force when wave is active
+    const springStrength = waveActive ? 0.005 : 0.02;
     const homeForceX = (this.homeX - this.x) * springStrength;
     const homeForceY = (this.homeY - this.y) * springStrength;
     this.vx += homeForceX;
     this.vy += homeForceY;
 
-    // Apply damping
-    this.vx *= 0.97;
-    this.vy *= 0.97;
+    // Progressive damping - stronger when moving fast
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const damping = 0.98 - Math.min(speed * 0.001, 0.03);
+    this.vx *= damping;
+    this.vy *= damping;
 
     // Update position
     this.x += this.vx;

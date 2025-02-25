@@ -128,7 +128,7 @@ export default function ParticleCanvas({ config }: ParticleCanvasProps) {
 
       waveSourcesRef.current = waveSourcesRef.current.filter(source => {
         source.time += 0.8;
-        return source.time < 200;
+        return source.time < 400; // Increased from 200 to 400 to allow full wave completion
       });
 
       const chunkSize = 100;
